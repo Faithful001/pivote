@@ -25,11 +25,12 @@ type RegisterPayload struct {
 }
 
 // Register creates a new user
-func (s *AuthService) Register(payload *RegisterPayload) (*user.User, error) {
+func (s *AuthService) Register(payload RegisterPayload) (*user.User, error) {
 	newUser := user.User{
 		Name:     payload.Name,
 		Email:    payload.Email,
 		Password: payload.Password,
+		Role:     "user",
 	}
 
 	userCreated, err := s.userService.CreateUser(&newUser)

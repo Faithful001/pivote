@@ -2,6 +2,7 @@ package router
 
 import (
 	"pivote/internal/domains/auth"
+	"pivote/internal/domains/program"
 	"pivote/internal/domains/user"
 
 	"github.com/gin-gonic/gin"
@@ -12,11 +13,18 @@ func SetupRouter() *gin.Engine {
 
 	v1 := router.Group("/api/v1")
 	{
-		authGroup := v1.Group("/auth")
-		auth.RegisterRoutes(authGroup)
-
+		authRoutes := v1.Group("/auth")
+		auth.RegisterRoutes(authRoutes)
+	}
+	
+	{
 		userRoutes := v1.Group("/users")
 		user.RegisterRoutes(userRoutes)
+	}
+
+	{	
+		programRoutes := v1.Group("/programs")
+		program.RegisterRoutes(programRoutes)
 	}
 
 	router.GET("/health", healthCheck)

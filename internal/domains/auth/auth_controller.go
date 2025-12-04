@@ -29,7 +29,7 @@ func (ctrl *AuthController) Register(c *gin.Context) {
 		return
 	}
 
-	userCreated, err := ctrl.service.Register(&payload)
+	userCreated, err := ctrl.service.Register(payload)
 	if err != nil {
 		// Check if it's a duplicate email error
 		if err.Error() == "User with this email already exists" {

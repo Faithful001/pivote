@@ -2,9 +2,9 @@ package user
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type UserController struct {
@@ -52,18 +52,18 @@ func (ctrl *UserController) CreateUser(c *gin.Context) {
 
 func (ctrl *UserController) GetUser(c *gin.Context) {
 	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": http.StatusBadRequest,
 			"success":    false,
-			"message":    "Invalid user ID",
+			"message":    "Invalid user ID format",
 			"data":       nil,
 		})
 		return
 	}
 	
-	user, err := ctrl.service.GetUserByID(uint(id))
+	user, err := ctrl.service.GetUserByID(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"statusCode": http.StatusNotFound,
@@ -104,12 +104,12 @@ func (ctrl *UserController) GetAllUsers(c *gin.Context) {
 
 func (ctrl *UserController) UpdateUser(c *gin.Context) {
 	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": http.StatusBadRequest,
 			"success":  false,
-			"message": "Invalid user ID " + err.Error(),
+			"message": "Invalid user ID format",
 			"data":       nil,
 		})
 		return
@@ -126,7 +126,7 @@ func (ctrl *UserController) UpdateUser(c *gin.Context) {
 		return
 	}
 	
-	user.ID = uint(id)
+	user.ID = id
 	
 	if err := ctrl.service.UpdateUser(&user); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -140,7 +140,7 @@ func (ctrl *UserController) UpdateUser(c *gin.Context) {
 	
 	c.JSON(http.StatusOK, gin.H{
 		"statusCode": http.StatusOK,
-		"success":  false,
+		"success":  true,
 		"message": "User updated successfully",
 		"data":    user,
 	})
@@ -148,18 +148,18 @@ func (ctrl *UserController) UpdateUser(c *gin.Context) {
 
 func (ctrl *UserController) DeleteUser(c *gin.Context) {
 	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": http.StatusBadRequest,
 			"success":  false,
-			"message": "Invalid user ID",
+			"message": "Invalid user ID format",
 			"data": nil,
 		})
 		return
 	}
 	
-	if err := ctrl.service.DeleteUser(uint(id)); err != nil {
+	if err := ctrl.service.DeleteUser(id); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"statusCode": http.StatusNotFound,
 			"success":  false,
@@ -171,7 +171,7 @@ func (ctrl *UserController) DeleteUser(c *gin.Context) {
 	
 	c.JSON(http.StatusOK, gin.H{
 		"statusCode": http.StatusOK,
-		"success":  false,
+		"success":  true,
 		"message": "User deleted successfully",
 		"data": nil,
 	})

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"pivote/internal/db"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -32,9 +33,9 @@ func (s *UserService) CreateUser(user *User) (*User, error) {
 	return user, nil
 }
 
-func (s *UserService) GetUserByID(id uint) (*User, error) {
+func (s *UserService) GetUserByID(id uuid.UUID) (*User, error) {
 	var user User
-	result := db.DB.First(&user, id)
+	result := db.DB.Where("id = ?", id).First(&user)
 	
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -76,8 +77,8 @@ func (s *UserService) UpdateUser(user *User) error {
 	return result.Error
 }
 
-func (s *UserService) DeleteUser(id uint) error {
-	result := db.DB.Delete(&User{}, id)
+func (s *UserService) DeleteUser(id uuid.UUID) error {
+	result := db.DB.Where("id = ?", id).Delete(&User{})
 	
 	if result.Error != nil {
 		return result.Error

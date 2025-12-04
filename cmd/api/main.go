@@ -2,6 +2,8 @@ package main
 
 import (
 	"pivote/internal/db"
+	"pivote/internal/domains/candidate"
+	"pivote/internal/domains/program"
 	"pivote/internal/domains/user"
 	"pivote/internal/router"
 )
@@ -11,7 +13,7 @@ func main() {
 	db.InitDB()
 
 	// Run migrations
-	if err := db.AutoMigrate(&user.User{}); err != nil {
+	if err := db.AutoMigrate(&user.User{}, &program.Program{}, &candidate.Candidate{}); err != nil {
 		panic("Failed to migrate database: " + err.Error())
 	}
 
