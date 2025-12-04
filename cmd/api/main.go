@@ -1,23 +1,23 @@
 package main
 
 import (
-	"net/http"
-
-	"github.com/gin-gonic/gin"
+	"pivote/internal/db"
+	"pivote/internal/domains/user"
+	"pivote/internal/router"
 )
 
 func main() {
-	router := gin.Default()
+	// Initialize database connection
+	db.InitDB()
 
-	router.GET("/health", func (c *gin.Context){
-		c.JSON(http.StatusOK, gin.H{
-			"message": "Hale and healthy",
-			"status": "success",
-			"data": gin.H{
-				"version": "1.0.0",
-			},
-		})
-	})
+	// Run migrations
+	if err := db.AutoMigrate(&user.User{}); err != nil {
+		panic("Failed to migrate database: " + err.Error())
+	}
 
-	router.Run(":8000")
+	// Setup router
+	r := router.SetupRouter()
+
+	// Start server
+	r.Run(":8000")
 }

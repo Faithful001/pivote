@@ -20,7 +20,7 @@ type User struct {
 	Name      string    `gorm:"type:varchar(100)" json:"name"`
 	Email     string    `gorm:"type:varchar(100)" json:"email"`
 	Role      Role      `gorm:"type:varchar(100)" json:"role"`
-	Password  string    `gorm:"type:varchar(255)" json:"password"`
+	Password  string    `gorm:"type:varchar(255)" json:"-"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
