@@ -9,10 +9,12 @@ import (
 	"pivote/internal/domains/vote"
 	"pivote/internal/infra/rabbitmq"
 
+	"pivote/internal/infra/websocket"
+
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRouter(mq *rabbitmq.RabbitMQ) *gin.Engine {
+func SetupRouter(mq *rabbitmq.RabbitMQ, hub *websocket.Hub) *gin.Engine {
 	router := gin.Default()
 
 	v1 := router.Group("/api/v1")
@@ -45,6 +47,11 @@ func SetupRouter(mq *rabbitmq.RabbitMQ) *gin.Engine {
 		voteRoutes := v1.Group("/votes")
 		vote.RegisterRoutes(voteRoutes)
 	}
+
+	// WebSocket route
+	router.GET("/ws", func(c *gin.Context) {
+		websocket.ServeWs(hub, c)
+	})
 
 	router.GET("/health", healthCheck)
 
