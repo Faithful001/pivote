@@ -1,10 +1,14 @@
 package auth
 
-import "github.com/gin-gonic/gin"
+import (
+	"pivote/internal/infra/rabbitmq"
+
+	"github.com/gin-gonic/gin"
+)
 
 // RegisterRoutes registers all auth-related routes
-func RegisterRoutes(router *gin.RouterGroup) {
-	controller := NewAuthController()
+func RegisterRoutes(router *gin.RouterGroup, mq *rabbitmq.RabbitMQ) {
+	controller := NewAuthController(mq)
 
 	// Auth routes
 	router.POST("/register", controller.Register) // POST /auth/register

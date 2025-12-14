@@ -2,19 +2,22 @@ package router
 
 import (
 	"pivote/internal/domains/auth"
+	"pivote/internal/domains/candidate"
 	"pivote/internal/domains/program"
 	"pivote/internal/domains/user"
+	"pivote/internal/domains/vote"
+	"pivote/internal/infra/rabbitmq"
 
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRouter() *gin.Engine {
+func SetupRouter(mq *rabbitmq.RabbitMQ) *gin.Engine {
 	router := gin.Default()
 
 	v1 := router.Group("/api/v1")
 	{
 		authRoutes := v1.Group("/auth")
-		auth.RegisterRoutes(authRoutes)
+		auth.RegisterRoutes(authRoutes, mq)
 	}
 	
 	{
@@ -25,6 +28,16 @@ func SetupRouter() *gin.Engine {
 	{	
 		programRoutes := v1.Group("/programs")
 		program.RegisterRoutes(programRoutes)
+	}
+
+	{
+		candidateRoutes := v1.Group("/candidates")
+		candidate.RegisterRoutes(candidateRoutes)
+	}
+
+	{
+		voteRoutes := v1.Group("/votes")
+		vote.RegisterRoutes(voteRoutes)
 	}
 
 	router.GET("/health", healthCheck)

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"pivote/internal/infra/rabbitmq"
 
 	"github.com/gin-gonic/gin"
 )
@@ -10,9 +11,9 @@ type AuthController struct {
 	service *AuthService
 }
 
-func NewAuthController() *AuthController {
+func NewAuthController(mq *rabbitmq.RabbitMQ) *AuthController {
 	return &AuthController{
-		service: NewAuthService(),
+		service: NewAuthService(mq),
 	}
 }
 

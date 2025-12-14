@@ -17,13 +17,14 @@ const (
 )
 
 type User struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	Name      string    `gorm:"type:varchar(100)" json:"name"`
-	Email     string    `gorm:"type:varchar(100)" json:"email"`
-	Role      Role      `gorm:"type:varchar(100);not null;default:'user'" json:"role"`
-	Password  string    `gorm:"type:varchar(255)" json:"-"`
-	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	ID        	uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	Name      	string    `gorm:"type:varchar(100)" json:"name"`
+	Email     	string    `gorm:"type:varchar(100)" json:"email"`
+	Role      	Role      `gorm:"type:varchar(100);not null;default:'user'" json:"role"`
+	Password  	string    `gorm:"type:varchar(255)" json:"-"`
+	IsVerified 	bool      `gorm:"type:boolean;not null;default:false" json:"is_verified"`
+	CreatedAt 	time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt 	time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 func (User) TableName() string {
