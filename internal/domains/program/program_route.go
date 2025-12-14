@@ -7,9 +7,9 @@ func RegisterRoutes(router *gin.RouterGroup) {
 	controller := NewProgramController()
 
 	// Program routes
-	router.POST("/programs", controller.CreateProgram)       // POST /programs
-	router.GET("/programs", controller.GetPrograms)          // GET /programs
-	router.GET("/programs/:id", controller.GetProgramById)   // GET /programs/:id
-	router.PUT("/programs/:id", controller.UpdateProgram)    // PUT /programs/:id
-	router.DELETE("/programs/:id", controller.DeleteProgram) // DELETE /programs/:id
+	router.POST("/", controller.CreateProgram)       // POST /programs
+	router.GET("/", controller.GetPrograms)          // GET /programs
+	router.GET("/:id", controller.GetProgramById)   // GET /programs/:id
+	router.PUT("/:id", controller.UpdateProgram)    // PUT /programs/:id
+	router.DELETE("/:id", controller.DeleteProgram) // DELETE /programs/:id
 }

@@ -12,7 +12,7 @@ type Candidate struct {
     ID          uuid.UUID       `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
     Name        string          `gorm:"type:varchar(255);not null" json:"name"`
     ProgramID   uuid.UUID       `gorm:"type:uuid;not null;index" json:"program_id"`
-    Program     program.Program `gorm:"foreignKey:ProgramID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT" json:"-"`
+    Program     *program.Program `gorm:"foreignKey:ProgramID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT" json:"program,omitempty"`
     CreatedAt   time.Time       `gorm:"autoCreateTime" json:"created_at"`
     UpdatedAt   time.Time       `gorm:"autoUpdateTime" json:"updated_at"`
 }

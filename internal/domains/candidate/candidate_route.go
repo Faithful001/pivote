@@ -7,9 +7,9 @@ func RegisterRoutes(router *gin.RouterGroup) {
 	controller := NewCandidateController()
 
 	// Candidate routes
-	router.POST("/candidates", controller.CreateCandidate)       // POST /candidates
-	router.GET("/candidates", controller.GetCandidates)          // GET /candidates
-	router.GET("/candidates/:id", controller.GetCandidateById)   // GET /candidates/:id
-	router.PUT("/candidates/:id", controller.UpdateCandidate)    // PUT /candidates/:id
-	router.DELETE("/candidates/:id", controller.DeleteCandidate) // DELETE /candidates/:id
+	router.POST("/", controller.CreateCandidate)       // POST /candidates
+	router.GET("/", controller.GetCandidates)          // GET /candidates
+	router.GET("/:id", controller.GetCandidateById)   // GET /candidates/:id
+	router.PUT("/:id", controller.UpdateCandidate)    // PUT /candidates/:id
+	router.DELETE("/:id", controller.DeleteCandidate) // DELETE /candidates/:id
 }

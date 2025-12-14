@@ -8,13 +8,16 @@ import (
 
 	"pivote/internal/infra/rabbitmq"
 
+	"pivote/internal/domains/otp/dto"
+
 	ampq "github.com/rabbitmq/amqp091-go"
 	"github.com/resend/resend-go/v3"
 )
 
 type EmailMessage struct {
-	Email string `json:"email"`
-	Otp   string `json:"otp"`
+	Email 	string `json:"email"`
+	Otp   	string `json:"otp"`
+	Purpose dto.Purpose `json:"purpose"`
 }
 
 type EmailConsumer struct {
@@ -76,11 +79,21 @@ func (c *EmailConsumer) processMessages(msgs <-chan ampq.Delivery) {
 }
 
 func (c *EmailConsumer) sendEmail(msg EmailMessage) error {
+	purposeMap := map[dto.Purpose]string{
+		dto.PurposeVerifyAcct: "Verify your Account",
+		dto.PurposeResetPwd:   "Reset your Password",
+	}
+
+	friendlyPurpose, ok := purposeMap[msg.Purpose]
+	if !ok {
+		friendlyPurpose = "Authentication"
+	}
+
 	params := &resend.SendEmailRequest{
-		From:    "Pivote <onboarding@resend.dev>", // Or your verified domain
+		From:    "Pivote <admin@resend.dev>",
 		To:      []string{msg.Email},
-		Subject: "Your OTP Code",
-		Html:    fmt.Sprintf("<p>Your OTP code is: <strong>%s</strong></p>", msg.Otp),
+		Subject: fmt.Sprintf("%s - Pivote", friendlyPurpose),
+		Html:    fmt.Sprintf("<p>Your OTP code to <strong>%s</strong> is: <strong>%s</strong></p>", friendlyPurpose, msg.Otp),
 	}
 
 	_, err := c.client.Emails.Send(params)

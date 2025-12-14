@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"pivote/internal/db"
+	"pivote/internal/domains/otp/dto"
 	"pivote/internal/infra/rabbitmq"
 	"pivote/internal/utils"
 	"time"
@@ -37,7 +38,7 @@ func (s *OtpService) GenerateOtp(email string) (string, error) {
 	return fmt.Sprintf("%04d", otpNum), nil
 }
 
-func (s *OtpService) SendOtpToEmail(email string, purpose Purpose) error {
+func (s *OtpService) SendOtpToEmail(email string, purpose dto.Purpose) error {
 	otp, err := s.GenerateOtp(email)
 	if err != nil {
 		return err
@@ -62,7 +63,7 @@ func (s *OtpService) SendOtpToEmail(email string, purpose Purpose) error {
 	}
 
 	// Publish to RabbitMQ
-	body := fmt.Sprintf(`{"email":"%s","otp":"%s"}`, email, otp)
+	body := fmt.Sprintf(`{"email":"%s","otp":"%s", "purpose":"%s"}`, email, otp, purpose)
 
 	err = s.mq.Publish(context.Background(), rabbitmq.PublishConfig{
 		Exchange:   "", 
@@ -83,7 +84,7 @@ func (s *OtpService) SendOtpToEmail(email string, purpose Purpose) error {
 	return nil
 }
 
-func (s *OtpService) VerifyOtp(email string, otp string, purpose Purpose) error {
+func (s *OtpService) VerifyOtp(email string, otp string, purpose dto.Purpose) error {
 	var otpFromDb Otp
 
 	result := db.DB.Where("email = ? AND purpose = ?", email, purpose).First(&otpFromDb)

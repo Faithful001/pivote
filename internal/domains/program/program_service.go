@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"pivote/internal/db"
-	"pivote/internal/domains/program/dtos"
+	dtos "pivote/internal/domains/program/dto"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

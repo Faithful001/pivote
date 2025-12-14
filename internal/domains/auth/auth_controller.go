@@ -3,6 +3,9 @@ package auth
 import (
 	"net/http"
 	"pivote/internal/infra/rabbitmq"
+	"strconv"
+
+	"pivote/internal/domains/auth/dto"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,7 +21,7 @@ func NewAuthController(mq *rabbitmq.RabbitMQ) *AuthController {
 }
 
 func (ctrl *AuthController) Register(c *gin.Context) {
-	var payload RegisterPayload
+	var payload dto.RegisterDto
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -63,10 +66,7 @@ func (ctrl *AuthController) Register(c *gin.Context) {
 
 func (ctrl *AuthController) Login(c *gin.Context) {
 
-	var credentials struct {
-		Email    string `json:"email" binding:"required,email"`
-		Password string `json:"password" binding:"required"`
-	}
+	var credentials dto.LoginDto
 
 	if err := c.ShouldBindJSON(&credentials); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -95,5 +95,37 @@ func (ctrl *AuthController) Login(c *gin.Context) {
 		"success":    true,
 		"message":    "User logged in successfully",
 		"data":       userLogged,
+	})
+}
+
+func (ctrl *AuthController) VerifyAccount (c *gin.Context){
+	var payload dto.VerifyAccountDto
+	
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"statusCode": http.StatusBadRequest,
+			"success":    false,
+			"message":    "Invalid request body",
+			"data":       nil,
+		})
+		return
+	}
+	
+	userVerified, err := ctrl.service.VerifyAccount(payload.Email, strconv.Itoa(payload.Otp))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"statusCode": http.StatusUnauthorized,
+			"success":    false,
+			"message":    err.Error(),
+			"data":       nil,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"statusCode": http.StatusOK,
+		"success":    true,
+		"message":    "User verified successfully",
+		"data":       userVerified,
 	})
 }

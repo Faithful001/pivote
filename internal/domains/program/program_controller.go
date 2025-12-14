@@ -2,7 +2,7 @@ package program
 
 import (
 	"net/http"
-	"pivote/internal/domains/program/dtos"
+	dtos "pivote/internal/domains/program/dto"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

@@ -1,24 +1,18 @@
 package otp
 
 import (
+	"pivote/internal/domains/otp/dto"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
-type Purpose string
-
-const (
-	PurposeVerifyAcct 	Purpose = "verify_acct"
-	PurposeResetPwd 	Purpose = "reset_pwd"
-)
-
 type Otp struct {
 	ID			uuid.UUID	`gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	Email		string		`gorm:"type:varchar(100)" json:"email"`
 	Otp			string		`gorm:"type:varchar(100)" json:"otp"`
-	Purpose 	Purpose		`gorm:"type:varchar(100)" json:"purpose"` 
+	Purpose 	dto.Purpose	`gorm:"type:varchar(100)" json:"purpose"` 
 	ExpiresAt	time.Time	`gorm:"type:timestamp;index" json:"expires_at"`
 	CreatedAt	time.Time	`gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt	time.Time	`gorm:"autoUpdateTime" json:"updated_at"`

@@ -4,7 +4,9 @@ import (
 	"errors"
 
 	"pivote/internal/db"
+	authdto "pivote/internal/domains/auth/dto"
 	"pivote/internal/domains/otp"
+	otpdto "pivote/internal/domains/otp/dto"
 	"pivote/internal/domains/user"
 	"pivote/internal/infra/rabbitmq"
 	"pivote/internal/utils"
@@ -24,18 +26,13 @@ func NewAuthService(mq *rabbitmq.RabbitMQ) *AuthService {
 	}
 }
 
-type RegisterPayload struct {
-	Name     string `json:"name" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
-}
 
 type AuthResponse struct {
-	User  *user.User `json:"user"`
-	Token string     `json:"token"`
+	User  		*user.User `json:"user"`
+	AccessToken string     `json:"accessToken"`
 }
 
-func (s *AuthService) Register(payload RegisterPayload) (*AuthResponse, error) {
+func (s *AuthService) Register(payload authdto.RegisterDto) (*user.User, error) {
 	newUser := user.User{
 		Name:     payload.Name,
 		Email:    payload.Email,
@@ -48,21 +45,12 @@ func (s *AuthService) Register(payload RegisterPayload) (*AuthResponse, error) {
 		return nil, err
 	}
 
-	err = s.otpService.SendOtpToEmail(userCreated.Email, otp.PurposeVerifyAcct)
+	err = s.otpService.SendOtpToEmail(userCreated.Email, otpdto.PurposeVerifyAcct)
 	if err != nil {
 		return nil, err
 	}
 
-	// Generate JWT token
-	token, err := s.GenerateToken(userCreated)
-	if err != nil {
-		return nil, err
-	}
-
-	return &AuthResponse{
-		User:  userCreated,
-		Token: token,
-	}, nil
+	return userCreated, nil
 }
 
 func (s *AuthService) Login(email, password string) (*AuthResponse, error) {
@@ -81,21 +69,25 @@ func (s *AuthService) Login(email, password string) (*AuthResponse, error) {
 		return nil, errors.New("invalid email or password")
 	}
 
+	if user.IsVerified == false {
+		return nil, errors.New("user not verified")
+	}
+
 	// Generate JWT token
-	token, err := s.GenerateToken(user)
+	token, err := utils.GenerateToken(user.ID, string(user.Role))
 	if err != nil {
 		return nil, err
 	}
 
 	return &AuthResponse{
 		User:  user,
-		Token: token,
+		AccessToken: token,
 	}, nil
 }
 
 func (s *AuthService) VerifyAccount(email string, otpString string) (*user.User, error) {
 	// Verify the OTP
-	if err := s.otpService.VerifyOtp(email, otpString, otp.PurposeVerifyAcct); err != nil {
+	if err := s.otpService.VerifyOtp(email, otpString, otpdto.PurposeVerifyAcct); err != nil {
 		return nil, err
 	}
 
@@ -115,7 +107,3 @@ func (s *AuthService) VerifyAccount(email string, otpString string) (*user.User,
 	return &userRecord, nil
 }
 
-// GenerateToken creates a signed JWT token for a user
-func (s *AuthService) GenerateToken(user *user.User) (string, error) {
-	return utils.GenerateToken(user.ID, user.Email, user.Name, string(user.Role))
-}

@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"pivote/internal/db"
-	"pivote/internal/domains/candidate/dtos"
+	dtos "pivote/internal/domains/candidate/dto"
+	"pivote/internal/domains/program"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -17,9 +18,25 @@ func NewCandidateService() *CandidateService {
 }
 
 func (candidate *CandidateService) CreateCandidate(payload dtos.CreateCandidateDto) (*Candidate, error) {
+	// Parse program ID
+	programID, err := uuid.Parse(payload.ProgramID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid program ID: %v", err)
+	}
+
 	newCandidate := Candidate{
 		Name:      payload.Name,
-		ProgramID: payload.ProgramID,
+		ProgramID: programID,
+	}
+
+	program := db.DB.Where("id = ?", payload.ProgramID).First(&program.Program{})
+
+	if errors.Is(program.Error, gorm.ErrRecordNotFound) {
+		return nil, errors.New("Program not found")
+	}
+
+	if program.Error != nil {
+		return nil, fmt.Errorf("Database error: %v", program.Error)
 	}
 
 	// Create the candidate in the database

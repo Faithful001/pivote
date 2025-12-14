@@ -11,4 +11,5 @@ type CustomClaims struct {
 	IsVerified	bool		`json:"is_verified"`
 	Role        string   	`json:"role"`
 	Permissions []string 	`json:"permissions,omitempty"`
+	Purpose		string		`json:"purpose"`
 }

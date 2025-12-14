@@ -11,7 +11,7 @@ import (
 )
 
 // GenerateToken creates a signed JWT token for a user
-func GenerateToken(userID uuid.UUID, email, name, role string) (string, error) {
+func GenerateToken(userID uuid.UUID, role string) (string, error) {
 	// Get secret key from environment
 	secretKey := os.Getenv("JWT_SECRET")
 	if secretKey == "" {
@@ -25,11 +25,10 @@ func GenerateToken(userID uuid.UUID, email, name, role string) (string, error) {
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Subject:   userID.String(),
 		},
-		UserID:      userID.String(),
-		Email:       email,
-		Name:        name,
-		Role:        role,
-		Permissions: []string{},
+		UserID:      	userID.String(),
+		Role:        	role,
+		Permissions: 	[]string{},
+		// Purpose: 		purpose,
 	}
 
 	// Create token

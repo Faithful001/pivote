@@ -3,6 +3,7 @@ package router
 import (
 	"pivote/internal/domains/auth"
 	"pivote/internal/domains/candidate"
+	"pivote/internal/domains/otp"
 	"pivote/internal/domains/program"
 	"pivote/internal/domains/user"
 	"pivote/internal/domains/vote"
@@ -18,6 +19,11 @@ func SetupRouter(mq *rabbitmq.RabbitMQ) *gin.Engine {
 	{
 		authRoutes := v1.Group("/auth")
 		auth.RegisterRoutes(authRoutes, mq)
+	}
+	
+	{
+		otpRoutes := v1.Group("/otps")
+		otp.RegisterRoutes(otpRoutes, mq)
 	}
 	
 	{

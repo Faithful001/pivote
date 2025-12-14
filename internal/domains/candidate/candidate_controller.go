@@ -2,7 +2,7 @@ package candidate
 
 import (
 	"net/http"
-	"pivote/internal/domains/candidate/dtos"
+	dtos "pivote/internal/domains/candidate/dto"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -26,6 +26,16 @@ func (ctrl *CandidateController) CreateCandidate(c *gin.Context) {
 			"statusCode": http.StatusBadRequest,
 			"success":    false,
 			"message":    "Invalid request payload",
+			"data":       nil,
+		})
+		return
+	}
+
+	if err := uuid.Validate(payload.ProgramID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"statusCode": http.StatusBadRequest,
+			"success":    false,
+			"message":    "Invalid id provided",
 			"data":       nil,
 		})
 		return

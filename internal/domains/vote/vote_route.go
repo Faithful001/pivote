@@ -23,7 +23,7 @@ func RegisterRoutes(router *gin.RouterGroup) {
 	protected.Use(middlewares.Standard(user.RoleAdmin, user.RoleUser))
 
 	// Vote routes
-	protected.POST("/votes/toggle", controller.ToggleVote)                                 // POST /votes/toggle
-	protected.GET("/votes/program/:program_id", controller.GetVotesByProgramID)           // GET /votes/program/:program_id
-	protected.GET("/votes/candidate/:candidate_id", controller.GetVotesByCandidateID)     // GET /votes/candidate/:candidate_id
+	protected.POST("/toggle", controller.ToggleVote)                                 // POST /votes/toggle
+	protected.GET("/program/:program_id", controller.GetVotesByProgramID)           // GET /votes/program/:program_id
+	protected.GET("/candidate/:candidate_id", controller.GetVotesByCandidateID)     // GET /votes/candidate/:candidate_id
 }
