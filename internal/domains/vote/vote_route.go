@@ -2,6 +2,7 @@ package vote
 
 import (
 	"pivote/internal/domains/user"
+	"pivote/internal/infra/websocket"
 	"pivote/internal/middlewares"
 
 	"github.com/gin-gonic/gin"
@@ -9,8 +10,8 @@ import (
 )
 
 // RegisterRoutes registers all vote-related routes
-func RegisterRoutes(router *gin.RouterGroup) {
-	controller := NewVoteController()
+func RegisterRoutes(router *gin.RouterGroup, hub *websocket.Hub) {
+	controller := NewVoteController(hub)
 
 	errRes := godotenv.Load()
 	if errRes != nil {

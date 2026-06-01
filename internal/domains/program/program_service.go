@@ -3,8 +3,8 @@ package program
 import (
 	"errors"
 	"fmt"
-	"pivote/internal/db"
 	dtos "pivote/internal/domains/program/dto"
+	"pivote/internal/infra/db"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

@@ -1,10 +1,23 @@
 version: "3.9"
 
 services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: pivote
+      POSTGRES_PASSWORD: pivote123
+      POSTGRES_DB: pivotedb
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
   rabbitmq:
     image: rabbitmq:3-management
-    container_name: rabbitmq
     hostname: rabbit-host
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -14,3 +27,4 @@ services:
 
 volumes:
   rabbitmq-data:
+  postgres-data:

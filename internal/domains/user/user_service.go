@@ -2,7 +2,7 @@ package user
 
 import (
 	"errors"
-	"pivote/internal/db"
+	"pivote/internal/infra/db"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

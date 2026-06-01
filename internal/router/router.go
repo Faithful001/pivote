@@ -45,7 +45,7 @@ func SetupRouter(mq *rabbitmq.RabbitMQ, hub *websocket.Hub) *gin.Engine {
 
 	{
 		voteRoutes := v1.Group("/votes")
-		vote.RegisterRoutes(voteRoutes)
+		vote.RegisterRoutes(voteRoutes, hub)
 	}
 
 	// WebSocket route

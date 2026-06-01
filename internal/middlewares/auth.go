@@ -7,8 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"pivote/internal/db"
 	"pivote/internal/domains/user"
+	"pivote/internal/infra/db"
 	"pivote/internal/types"
 
 	"github.com/gin-gonic/gin"

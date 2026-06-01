@@ -3,11 +3,11 @@ package auth
 import (
 	"errors"
 
-	"pivote/internal/db"
 	authdto "pivote/internal/domains/auth/dto"
 	"pivote/internal/domains/otp"
 	otpdto "pivote/internal/domains/otp/dto"
 	"pivote/internal/domains/user"
+	"pivote/internal/infra/db"
 	"pivote/internal/infra/rabbitmq"
 	"pivote/internal/utils"
 

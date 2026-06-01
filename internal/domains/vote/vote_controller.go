@@ -3,6 +3,7 @@ package vote
 import (
 	"net/http"
 	"pivote/internal/domains/vote/dtos"
+	"pivote/internal/infra/websocket"
 	"pivote/internal/middlewares"
 
 	"github.com/gin-gonic/gin"
@@ -13,9 +14,9 @@ type VoteController struct {
 	service *VoteService
 }
 
-func NewVoteController() VoteController {
+func NewVoteController(hub *websocket.Hub) VoteController {
 	return VoteController{
-		service: NewVoteService(),
+		service: NewVoteService(hub),
 	}
 }
 

@@ -2,11 +2,12 @@ package main
 
 import (
 	"log"
-	"pivote/internal/db"
+	"os"
 	"pivote/internal/domains/candidate"
 	"pivote/internal/domains/otp"
 	"pivote/internal/domains/program"
 	"pivote/internal/domains/user"
+	"pivote/internal/infra/db"
 	"pivote/internal/infra/rabbitmq"
 	"pivote/internal/infra/websocket"
 	"pivote/internal/router"
@@ -19,8 +20,9 @@ func main() {
 	db.InitDB()
 
 	// Initialize rabbitmq
+	amqpURL := os.Getenv("RABBITMQ_URL")
 	mq, err := rabbitmq.NewRabbitMQ(rabbitmq.Config{
-		URL:            "amqp://guest:guest@localhost:5672/",
+		URL:            amqpURL,
 		ReconnectDelay: 5 * time.Second,
 		MaxReconnect:   5,
 	})

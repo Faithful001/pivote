@@ -3,9 +3,9 @@ package candidate
 import (
 	"errors"
 	"fmt"
-	"pivote/internal/db"
 	dtos "pivote/internal/domains/candidate/dto"
 	"pivote/internal/domains/program"
+	"pivote/internal/infra/db"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
