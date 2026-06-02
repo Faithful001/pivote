@@ -1,7 +1,6 @@
 package vote
 
 import (
-	"encoding/json"
 	"errors"
 	"log"
 	"pivote/internal/domains/candidate"
@@ -14,11 +13,11 @@ import (
 )
 
 type VoteService struct {
-	hub *websocket.Hub
+	socketio *websocket.SocketIOServer
 }
 
-func NewVoteService(hub *websocket.Hub) *VoteService {
-	return &VoteService{hub: hub}
+func NewVoteService(socketio *websocket.SocketIOServer) *VoteService {
+	return &VoteService{socketio: socketio}
 }
 
 func (v *VoteService) ToggleVoteCandidate(
@@ -105,7 +104,7 @@ func (v *VoteService) GetLeaderboard(programID uuid.UUID) ([]dtos.LeaderboardEnt
 }
 
 func (v *VoteService) broadcastLeaderboard(programID uuid.UUID) {
-	if v.hub == nil {
+	if v.socketio == nil {
 		return
 	}
 
@@ -121,13 +120,13 @@ func (v *VoteService) broadcastLeaderboard(programID uuid.UUID) {
 		Data:      entries,
 	}
 
-	payload, err := json.Marshal(msg)
-	if err != nil {
-		log.Printf("leaderboard broadcast: failed to marshal message: %v", err)
-		return
-	}
+	// payload, err := json.Marshal(msg)
+	// if err != nil {
+	// 	log.Printf("leaderboard broadcast: failed to marshal message: %v", err)
+	// 	return
+	// }
 
-	v.hub.BroadcastToRaw(payload)
+	v.socketio.BroadcastLeaderboard(msg)
 }
 
 func (v *VoteService) GetVotesByProgramID(program_id uuid.UUID) ([]Vote, error) {

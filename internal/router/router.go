@@ -14,7 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRouter(mq *rabbitmq.RabbitMQ, hub *websocket.Hub) *gin.Engine {
+func SetupRouter(mq *rabbitmq.RabbitMQ, socketio *websocket.SocketIOServer) *gin.Engine {
 	router := gin.Default()
 
 	v1 := router.Group("/api/v1")
@@ -45,13 +45,13 @@ func SetupRouter(mq *rabbitmq.RabbitMQ, hub *websocket.Hub) *gin.Engine {
 
 	{
 		voteRoutes := v1.Group("/votes")
-		vote.RegisterRoutes(voteRoutes, hub)
+		vote.RegisterRoutes(voteRoutes, socketio)
 	}
 
-	// WebSocket route
-	router.GET("/ws", func(c *gin.Context) {
-		websocket.ServeWs(hub, c)
-	})
+	// WebSocket route	// Socket.IO routes
+	router.GET("/socket.io/*any", gin.WrapH(socketio.Server))
+	router.POST("/socket.io/*any", gin.WrapH(socketio.Server))
+
 
 	router.GET("/health", healthCheck)
 

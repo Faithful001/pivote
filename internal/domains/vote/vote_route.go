@@ -10,8 +10,8 @@ import (
 )
 
 // RegisterRoutes registers all vote-related routes
-func RegisterRoutes(router *gin.RouterGroup, hub *websocket.Hub) {
-	controller := NewVoteController(hub)
+func RegisterRoutes(router *gin.RouterGroup, socketio *websocket.SocketIOServer) {
+	controller := NewVoteController(socketio)
 
 	errRes := godotenv.Load()
 	if errRes != nil {

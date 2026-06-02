@@ -14,9 +14,9 @@ type VoteController struct {
 	service *VoteService
 }
 
-func NewVoteController(hub *websocket.Hub) VoteController {
+func NewVoteController(socketio *websocket.SocketIOServer) VoteController {
 	return VoteController{
-		service: NewVoteService(hub),
+		service: NewVoteService(socketio),
 	}
 }
 

@@ -49,9 +49,11 @@ func main() {
 	otpCleanupWorker := otp.NewOtpCleanupWorker(otpService)
 	otpCleanupWorker.Start()
 
-	// Initialize WebSocket Hub
-	hub := websocket.NewHub()
-	go hub.Run()
+	// Initialize Socket.IO Server
+	ioServer, err := websocket.NewSocketIOServer()
+	if err != nil {
+		log.Fatalf("Failed to initialize Socket.IO server: %v", err)
+	}
 
 	// Run migrations
 	if err := db.AutoMigrate(&user.User{}, &program.Program{}, &candidate.Candidate{}, &otp.Otp{}); err != nil {
@@ -59,7 +61,7 @@ func main() {
 	}
 
 	// Setup router
-	r := router.SetupRouter(mq, hub)
+	r := router.SetupRouter(mq, ioServer)
 
 	// Start server
 	r.Run(":8000")
