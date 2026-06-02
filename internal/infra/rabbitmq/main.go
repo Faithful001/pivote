@@ -12,275 +12,242 @@ import (
 )
 
 type RabbitMQ struct {
-	conn 			*amqp.Connection
-	channel 		*amqp.Channel
-	isConnected 	bool
-	mu 				sync.RWMutex
-	config 			Config
-	shutdownChan	chan struct{}
+	conn    *amqp.Connection
+	channel *amqp.Channel
+
+	config Config
+
+	mu sync.RWMutex
+
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 type Config struct {
-	URL 			string
-	ReconnectDelay 	time.Duration
-	MaxReconnect 	int
+	URL				string
+	ReconnectDelay	time.Duration
+	MaxReconnect	int	
 }
 
 type QueueConfig struct {
-	Name 		string
+	Name		string
 	Durable 	bool
-	AutoDelete 	bool
-	Exclusive 	bool
-	NoWait 		bool
-	Args 		amqp.Table
+	AutoDelete	bool
+	Exclusive	bool
+	NoWait		bool
+	Args		amqp.Table
 }
 
 type PublishConfig struct {
-	Exchange   string
-	RoutingKey string
-	Mandatory  bool
-	Immediate  bool
-	Message    amqp.Publishing
+	Exchange	string
+	RoutingKey	string
+	Mandatory	bool
+	Immediate	bool
+	Message		amqp.Publishing
 }
 
 type ConsumeConfig struct {
-	Queue     string
-	Consumer  string
-	AutoAck   bool
-	Exclusive bool
-	NoLocal   bool
-	NoWait    bool
-	Args      amqp.Table
-}
-
-
-func DefaultQueueConfig(name string) QueueConfig {
-	return QueueConfig{
-		Name: name,
-		Durable: true,
-		AutoDelete: false,
-		Exclusive: false,
-		NoWait: false,
-		Args: nil,
-	}
-}
-
-func DefaultPublishConfig(exchange, key string) PublishConfig {
-	return PublishConfig{
-		Exchange: exchange,
-		RoutingKey: key,
-		Mandatory: false,
-		Immediate: false,
-		Message: amqp.Publishing{
-			ContentType: "application/json",
-		},
-	}
+	Queue		string
+	Consumer		string
+	AutoAck		bool
+	Exclusive	bool
+	NoLocal		bool
+	NoWait		bool
+	Args		amqp.Table
 }
 
 func DefaultConfig() Config {
 	return Config{
-		URL:           "amqp://guest:guest@localhost:5672/",
+		URL: "amqp://admin:admin123@127.0.0.1:5672/",
 		ReconnectDelay: 5 * time.Second,
-		MaxReconnect:   5,
+		MaxReconnect:  5,
 	}
 }
 
 func NewRabbitMQ(config Config) (*RabbitMQ, error) {
-
-	if config.URL == "" {
+	if config.URL == ""{
 		config = DefaultConfig()
 	}
 
-	r := &RabbitMQ {
-		config: config,
-		shutdownChan: make(chan struct{}),
+	ctx, cancel := context.WithCancel(context.Background())
+
+	r := &RabbitMQ{
+		config: 		config,
+		ctx:    		ctx,
+		cancel:    		cancel,
 	}
 
 	if err := r.Connect(); err != nil {
-		return nil, fmt.Errorf("failed to connect: %w", err)
+		cancel()
+		return nil, fmt.Errorf("Failed to connect to rabbitmq %w", err)
 	}
 
-	// Start connection monitor in background
 	go r.MonitorConnection()
 
 	return r, nil
 }
 
 func (r *RabbitMQ) Connect() error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	var lastErr error
 
 	for i := 0; i <= r.config.MaxReconnect; i++ {
 		if i > 0 {
-			log.Printf("Reconnection attempt %d/%d", i, r.config.MaxReconnect)
 			time.Sleep(r.config.ReconnectDelay)
+			log.Printf("RabbitMQ reconnect attempt %d/%d", i, r.config.MaxReconnect)
 		}
 
 		conn, err := amqp.Dial(r.config.URL)
-
 		if err != nil {
 			lastErr = err
-			// fmt.Errorf("Failed to connect: %w", err)
-			continue
-		}
-		
-		channel, err := conn.Channel()
-		
-		if err != nil {
-			conn.Close()
-			lastErr = err
-			// fmt.Errorf("Failed to connect: %w", err)
 			continue
 		}
 
+		ch, err := conn.Channel()
+		if err != nil {
+			_ = conn.Close()
+			lastErr = err
+			continue
+		}
+
+		r.mu.Lock()
 		r.conn = conn
-		r.channel = channel
-		r.isConnected = true
+		r.channel = ch
+		r.mu.Unlock()
 
-		log.Println("Successfully connected to RabbitMQ")
 		return nil
-		
 	}
 
-	return fmt.Errorf("failed to connect after %d attempts: %w", r.config.MaxReconnect+1, lastErr)
+	return fmt.Errorf("max reconnect attempts reached: %w", lastErr)
 }
 
-func (r *RabbitMQ) DeclareQueue(config QueueConfig)  (amqp.Queue, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *RabbitMQ) DeclareQueue(cfg QueueConfig) (amqp.Queue, error) {
+	r.mu.RLock()
+	ch := r.channel
+	r.mu.RUnlock()
 
-	if !r.isConnected || r.channel == nil {
-		return amqp.Queue{}, errors.New("Not connected to RabbitMQ")
+	if ch == nil {
+		return amqp.Queue{}, errors.New("rabbitmq not connected")
 	}
-	
-	queue, err := r.channel.QueueDeclare(
-		config.Name,
-		config.Durable,
-		config.AutoDelete,
-		config.Exclusive,
-		config.NoWait,
-		config.Args,
+
+	q, err := ch.QueueDeclare(
+		cfg.Name,
+		cfg.Durable,
+		cfg.AutoDelete,
+		cfg.Exclusive,
+		cfg.NoWait,
+		cfg.Args,
 	)
 
 	if err != nil {
-		return amqp.Queue{}, fmt.Errorf("Unable to declare queue %w", err)
+		return amqp.Queue{}, fmt.Errorf("queue declare failed: %w", err)
 	}
 
-	log.Printf("Queue declared: %s (messages: %d, consumers: %d)", 
-		queue.Name, queue.Messages, queue.Consumers)
-
-	return queue, nil
+	return q, nil
 }
 
-func (r *RabbitMQ) MonitorConnection() {
-	notifyClose := r.conn.NotifyClose(make(chan *amqp.Error))
+func (r *RabbitMQ) Publish(ctx context.Context, cfg PublishConfig) error {
+	r.mu.RLock()
+	ch := r.channel
+	r.mu.RUnlock()
 
-		for {
-			select {
-				case err := <- notifyClose:
-					if err != nil {
-						r.mu.Lock()
-						r.isConnected = false
-						r.mu.Unlock()
-						
-						if err := r.Connect(); err != nil {
-							log.Printf("Failed to reconnect: %s", err.Error())
-						}
-					}
-			case <-r.shutdownChan:
-				return
-			}
-		}
-}
-
-func (r *RabbitMQ) Publish(ctx context.Context, config PublishConfig) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if !r.isConnected || r.channel == nil {
-		return errors.New("Not connected to RabbitMQ")
+	if ch == nil {
+		return errors.New("rabbitmq not connected")
 	}
 
-	if ctx == nil {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(context.Background(), 5 * time.Second)
-		defer cancel()
-	}
-
-	err := r.channel.PublishWithContext(
+	err := ch.PublishWithContext(
 		ctx,
-		config.Exchange,
-		config.RoutingKey,
-		config.Mandatory,
-		config.Immediate,
-		config.Message,
+		cfg.Exchange,
+		cfg.RoutingKey,
+		cfg.Mandatory,
+		cfg.Immediate,
+		cfg.Message,
 	)
 
 	if err != nil {
-		return fmt.Errorf("Failed to publish message: %w", err)
+		return fmt.Errorf("publish failed: %w", err)
 	}
-
-	log.Printf("Message published to %s/%s", config.Exchange, config.RoutingKey)
 
 	return nil
 }
 
-func (r *RabbitMQ) Consume (config ConsumeConfig) (<- chan amqp.Delivery, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *RabbitMQ) Consume(cfg ConsumeConfig) (<- chan amqp.Delivery, error) {
+	r.mu.RLock()
+	ch := r.channel
+	r.mu.RUnlock()
 
-	if !r.isConnected || r.channel == nil {
-		return nil, errors.New("Not connected to RabbitMQ")
+	if ch == nil {
+		return nil, errors.New("rabbitmq not connected")
 	}
 
-	msgs, err := r.channel.Consume(
-		config.Queue,
-		config.Consumer,
-		config.AutoAck,
-		config.Exclusive,
-		config.NoLocal,
-		config.NoWait,
-		config.Args,
+	msgs, err := ch.Consume(
+		cfg.Queue,
+		cfg.Consumer,
+		cfg.AutoAck,
+		cfg.Exclusive,
+		cfg.NoLocal,
+		cfg.NoWait,
+		cfg.Args,
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("unable to start consuming: %w", err)
+		return nil, fmt.Errorf("consume failed: %w", err)
 	}
-
-	log.Printf("Consumer started on queue: %s", config.Queue)
 
 	return msgs, nil
 }
 
+func (r *RabbitMQ) MonitorConnection() {
+	for {
+		r.mu.RLock()
+		ch := r.channel
+		r.mu.RUnlock()
+
+		if ch == nil {
+			return
+		}
+
+		closeCh := ch.NotifyClose(make(chan *amqp.Error))
+
+		select {
+		case err := <-closeCh:
+			if err != nil {
+				log.Printf("RabbitMQ connection lost: %v", err)
+
+				if err := r.Connect(); err != nil {
+					log.Printf("Reconnect failed: %v", err)
+				}
+			}
+
+		case <-r.ctx.Done():
+			return
+		}
+	}
+}
+
 func (r *RabbitMQ) Close() error {
+	r.cancel()
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
-	close(r.shutdownChan)
 
 	var errs []error
 
 	if r.channel != nil {
 		if err := r.channel.Close(); err != nil {
-			errs = append(errs, fmt.Errorf("failed to close channel: %w", err))
+			errs = append(errs, fmt.Errorf("channel close failed: %w", err))
 		}
 	}
 
 	if r.conn != nil {
 		if err := r.conn.Close(); err != nil {
-			errs = append(errs, fmt.Errorf("failed to close connection: %w", err))
+			errs = append(errs, fmt.Errorf("connection close failed: %w", err))
 		}
 	}
 
-	r.isConnected = false
-
 	if len(errs) > 0 {
-		return fmt.Errorf("failed to close RabbitMQ: %v", errs)
+		return fmt.Errorf("rabbitmq close errors: %w", errors.Join(errs...))
 	}
 
-	log.Println("RabbitMQ connection closed gracefully")
-
+	log.Println("RabbitMQ closed cleanly")
 	return nil
 }
