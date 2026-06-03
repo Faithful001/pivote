@@ -118,3 +118,12 @@ func (candidate *CandidateService) DeleteCandidate(id uuid.UUID) (*Candidate, er
 
 	return &existingCandidate, nil
 }
+
+func (candidate *CandidateService) GetCandidatesByProgramID(programID uuid.UUID) ([]Candidate, error) {
+	var candidates []Candidate
+	result := db.DB.Preload("Program").Where("program_id = ?", programID).Find(&candidates)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return candidates, nil
+}

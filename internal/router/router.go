@@ -8,8 +8,8 @@ import (
 	"pivote/internal/domains/user"
 	"pivote/internal/domains/vote"
 	"pivote/internal/infra/rabbitmq"
-
 	"pivote/internal/infra/websocket"
+	"pivote/internal/middlewares"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,23 +17,31 @@ import (
 func SetupRouter(mq *rabbitmq.RabbitMQ, socketio *websocket.SocketIOServer) *gin.Engine {
 	router := gin.Default()
 
+	router.Use(middlewares.CORS())
+
 	v1 := router.Group("/api/v1")
+
 	{
 		authRoutes := v1.Group("/auth")
 		auth.RegisterRoutes(authRoutes, mq)
 	}
-	
+
 	{
 		otpRoutes := v1.Group("/otps")
 		otp.RegisterRoutes(otpRoutes, mq)
 	}
-	
+
 	{
-		userRoutes := v1.Group("/users")
-		user.RegisterRoutes(userRoutes)
+		userAuth := v1.Group("/users")
+		userAuth.Use(middlewares.Standard(user.RoleAdmin, user.RoleUser))
+
+		userAdmin := v1.Group("/users")
+		userAdmin.Use(middlewares.Standard(user.RoleAdmin))
+
+		user.RegisterRoutes(userAuth, userAdmin)
 	}
 
-	{	
+	{
 		programRoutes := v1.Group("/programs")
 		program.RegisterRoutes(programRoutes)
 	}
@@ -48,10 +56,8 @@ func SetupRouter(mq *rabbitmq.RabbitMQ, socketio *websocket.SocketIOServer) *gin
 		vote.RegisterRoutes(voteRoutes, socketio)
 	}
 
-	// WebSocket route	// Socket.IO routes
 	router.GET("/socket.io/*any", gin.WrapH(socketio.Server))
 	router.POST("/socket.io/*any", gin.WrapH(socketio.Server))
-
 
 	router.GET("/health", healthCheck)
 

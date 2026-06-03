@@ -82,6 +82,40 @@ func (ctrl *CandidateController) GetCandidates(c *gin.Context) {
 	})
 }
 
+func (ctrl *CandidateController) GetCandidatesByProgramID(c *gin.Context) {
+	idParam := c.Param("program_id")
+	programID, err := uuid.Parse(idParam)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"statusCode": http.StatusBadRequest,
+			"success":    false,
+			"message":    "Invalid program ID",
+			"data":       nil,
+		})
+		return
+	}
+
+	result, err := ctrl.service.GetCandidatesByProgramID(programID)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"statusCode": http.StatusInternalServerError,
+			"success":    false,
+			"message":    err.Error(),
+			"data":       nil,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"statusCode": http.StatusOK,
+		"success":    true,
+		"message":    "Candidates retrieved successfully",
+		"data":       result,
+	})
+}
+
 func (ctrl *CandidateController) GetCandidateById(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := uuid.Parse(idParam)

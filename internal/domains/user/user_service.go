@@ -2,6 +2,7 @@ package user
 
 import (
 	"errors"
+	"pivote/internal/domains/user/dto"
 	"pivote/internal/infra/db"
 
 	"github.com/google/uuid"
@@ -72,9 +73,27 @@ func (s *UserService) GetAllUsers() ([]User, error) {
 	return users, nil
 }
 
-func (s *UserService) UpdateUser(user *User) error {
-	result := db.DB.Save(user)
-	return result.Error
+func (s *UserService) UpdateUser(id uuid.UUID, payload dto.UpdateUserDto) (*User, error) {
+	var existing User
+	if err := db.DB.Where("id = ?", id).First(&existing).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+
+	// Only update fields the caller is allowed to change
+	if payload.Name != "" {
+		existing.Name = payload.Name
+	}
+	if payload.Email != "" {
+		existing.Email = payload.Email
+	}
+
+	if err := db.DB.Save(&existing).Error; err != nil {
+		return nil, err
+	}
+	return &existing, nil
 }
 
 func (s *UserService) DeleteUser(id uuid.UUID) error {

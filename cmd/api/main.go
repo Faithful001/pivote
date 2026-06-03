@@ -7,6 +7,7 @@ import (
 	"pivote/internal/domains/otp"
 	"pivote/internal/domains/program"
 	"pivote/internal/domains/user"
+	"pivote/internal/domains/vote"
 	"pivote/internal/infra/db"
 	"pivote/internal/infra/rabbitmq"
 	"pivote/internal/infra/websocket"
@@ -56,7 +57,7 @@ func main() {
 	}
 
 	// Run migrations
-	if err := db.AutoMigrate(&user.User{}, &program.Program{}, &candidate.Candidate{}, &otp.Otp{}); err != nil {
+	if err := db.AutoMigrate(&user.User{}, &program.Program{}, &program.UserProgram{}, &candidate.Candidate{}, &otp.Otp{}, &vote.Vote{}); err != nil {
 		panic("Failed to migrate database: " + err.Error())
 	}
 

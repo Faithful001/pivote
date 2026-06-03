@@ -6,17 +6,11 @@ import (
 	"pivote/internal/middlewares"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 )
 
 // RegisterRoutes registers all vote-related routes
 func RegisterRoutes(router *gin.RouterGroup, socketio *websocket.SocketIOServer) {
 	controller := NewVoteController(socketio)
-
-	errRes := godotenv.Load()
-	if errRes != nil {
-		panic("Error loading .env file")
-	}
 
 	protected := router.Group("/")
 	// Use Standard middleware (Roles: Admin, User)
@@ -24,7 +18,7 @@ func RegisterRoutes(router *gin.RouterGroup, socketio *websocket.SocketIOServer)
 	protected.Use(middlewares.Standard(user.RoleAdmin, user.RoleUser))
 
 	// Vote routes
-	protected.POST("/toggle", controller.ToggleVote)                                 // POST /votes/toggle
-	protected.GET("/program/:program_id", controller.GetVotesByProgramID)           // GET /votes/program/:program_id
-	protected.GET("/candidate/:candidate_id", controller.GetVotesByCandidateID)     // GET /votes/candidate/:candidate_id
+	protected.POST("/toggle", controller.ToggleVote)                             // POST /votes/toggle
+	protected.GET("/program/:program_id", controller.GetVotesByProgramID)       // GET /votes/program/:program_id
+	protected.GET("/candidate/:candidate_id", controller.GetVotesByCandidateID) // GET /votes/candidate/:candidate_id
 }

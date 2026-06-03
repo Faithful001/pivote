@@ -3,7 +3,6 @@ package auth
 import (
 	"net/http"
 	"pivote/internal/infra/rabbitmq"
-	"strconv"
 
 	"pivote/internal/domains/auth/dto"
 
@@ -111,7 +110,7 @@ func (ctrl *AuthController) VerifyAccount (c *gin.Context){
 		return
 	}
 	
-	userVerified, err := ctrl.service.VerifyAccount(payload.Email, strconv.Itoa(payload.Otp))
+	userVerified, err := ctrl.service.VerifyAccount(payload.Email, payload.Otp)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"statusCode": http.StatusUnauthorized,

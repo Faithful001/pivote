@@ -75,7 +75,18 @@ func (ctrl *VoteController) GetVotesByProgramID(c *gin.Context) {
 		return
 	}
 
-	result, err := ctrl.service.GetVotesByProgramID(programID)
+	user, err := middlewares.GetUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"statusCode": http.StatusUnauthorized,
+			"success":    false,
+			"message":    "Unauthorized",
+			"data":       nil,
+		})
+		return
+	}
+
+	result, err := ctrl.service.GetProgramVotesInfo(programID, user.ID)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{

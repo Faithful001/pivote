@@ -29,7 +29,7 @@ func NewAuthService(mq *rabbitmq.RabbitMQ) *AuthService {
 
 type AuthResponse struct {
 	User  		*user.User `json:"user"`
-	AccessToken string     `json:"accessToken"`
+	AccessToken string     `json:"token"`
 }
 
 func (s *AuthService) Register(payload authdto.RegisterDto) (*user.User, error) {
@@ -59,14 +59,14 @@ func (s *AuthService) Login(email, password string) (*AuthResponse, error) {
 	
 	if err != nil {
 		if err.Error() == "user not found" || errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("invalid email or password")
+			return nil, errors.New("Invalid email or password")
 		}
 		return nil, err
 	}
 
 	// Verify password
 	if err := utils.VerifyPassword(user.Password, password); err != nil {
-		return nil, errors.New("invalid email or password")
+		return nil, errors.New("Invalid email or password")
 	}
 
 	if user.IsVerified == false {

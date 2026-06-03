@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"pivote/internal/domains/candidate"
+	"pivote/internal/domains/program"
 	"pivote/internal/domains/vote/dtos"
 	"pivote/internal/infra/db"
 	"pivote/internal/infra/websocket"
@@ -20,36 +21,69 @@ func NewVoteService(socketio *websocket.SocketIOServer) *VoteService {
 	return &VoteService{socketio: socketio}
 }
 
+type ProgramVotesInfo struct {
+	TotalVotes          int64            `json:"total_votes"`
+	VotesByCandidate    map[string]int64 `json:"votes_by_candidate"`
+	UserVoteCandidateID *string          `json:"user_vote_candidate_id"`
+}
+
 func (v *VoteService) ToggleVoteCandidate(
 	userID uuid.UUID,
 	candidateID uuid.UUID,
 ) (*Vote, error) {
-
+	// 1. Fetch Candidate
 	var c candidate.Candidate
 	if err := db.DB.Where("id = ?", candidateID).First(&c).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("candidate not found")
+			return nil, errors.New("Candidate not found")
 		}
 		return nil, err
+	}
+
+	// 2. Fetch and verify Program status
+	var prog program.Program
+	if err := db.DB.Where("id = ?", c.ProgramID).First(&prog).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("Program not found")
+		}
+		return nil, err
+	}
+
+	if !prog.IsActive {
+		return nil, errors.New("Voting is closed for this program")
+	}
+
+	// 3. Verify user has joined the program
+	var joinedCount int64
+	db.DB.Model(&program.UserProgram{}).Where("user_id = ? AND program_id = ?", userID, c.ProgramID).Count(&joinedCount)
+	if joinedCount == 0 {
+		return nil, errors.New("You must join this program before you can vote")
 	}
 
 	var vote Vote
 
 	err := db.DB.Transaction(func(tx *gorm.DB) error {
+		// 4. Check if user already voted in this program
+		var existingVote Vote
 		err := tx.
-			Where("user_id = ? AND candidate_id = ?", userID, candidateID).
-			First(&vote).Error
+			Where("user_id = ? AND program_id = ?", userID, c.ProgramID).
+			First(&existingVote).Error
 
 		if err == nil {
-			// Vote exists — remove it
-			return tx.Delete(&vote).Error
+			// User has already voted
+			if existingVote.CandidateID == candidateID {
+				// Idempotent: return the existing vote
+				vote = existingVote
+				return nil
+			}
+			return errors.New("You have already voted in this program")
 		}
 
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
 
-		// Vote doesn't exist → insert
+		// 5. User hasn't voted yet, create the vote
 		vote = Vote{
 			UserID:      userID,
 			CandidateID: candidateID,
@@ -120,37 +154,54 @@ func (v *VoteService) broadcastLeaderboard(programID uuid.UUID) {
 		Data:      entries,
 	}
 
-	// payload, err := json.Marshal(msg)
-	// if err != nil {
-	// 	log.Printf("leaderboard broadcast: failed to marshal message: %v", err)
-	// 	return
-	// }
-
 	v.socketio.BroadcastLeaderboard(msg)
+}
+
+func (v *VoteService) GetProgramVotesInfo(programID, userID uuid.UUID) (*ProgramVotesInfo, error) {
+	var votes []Vote
+	if err := db.DB.Where("program_id = ?", programID).Find(&votes).Error; err != nil {
+		return nil, err
+	}
+
+	votesByCandidate := make(map[string]int64)
+	var totalVotes int64 = 0
+
+	for _, vote := range votes {
+		candidateIDStr := vote.CandidateID.String()
+		votesByCandidate[candidateIDStr] = votesByCandidate[candidateIDStr] + 1
+		totalVotes++
+	}
+
+	var userVote Vote
+	var userVoteCandidateID *string = nil
+
+	err := db.DB.Where("user_id = ? AND program_id = ?", userID, programID).First(&userVote).Error
+	if err == nil {
+		candidateIDStr := userVote.CandidateID.String()
+		userVoteCandidateID = &candidateIDStr
+	}
+
+	return &ProgramVotesInfo{
+		TotalVotes:          totalVotes,
+		VotesByCandidate:    votesByCandidate,
+		UserVoteCandidateID: userVoteCandidateID,
+	}, nil
 }
 
 func (v *VoteService) GetVotesByProgramID(program_id uuid.UUID) ([]Vote, error) {
 	var votes []Vote
-
-	// select votes where program_id = program_id
 	result := db.DB.Where("program_id = ?", program_id).Find(&votes)
-
 	if result.Error != nil {
 		return nil, result.Error
 	}
-
 	return votes, nil
 }
 
 func (v *VoteService) GetVotesByCandidateID(candidate_id uuid.UUID) ([]Vote, error) {
 	var votes []Vote
-
-	//select votes where candidate_id = candidate_id
 	result := db.DB.Where("candidate_id = ?", candidate_id).Find(&votes)
-
 	if result.Error != nil {
 		return nil, result.Error
 	}
-
 	return votes, nil
 }

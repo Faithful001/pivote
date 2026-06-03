@@ -1,7 +1,9 @@
 package user
 
 import (
+	"log"
 	"net/http"
+	"pivote/internal/domains/user/dto"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -11,42 +13,43 @@ type UserController struct {
 	service *UserService
 }
 
-
 func NewUserController() *UserController {
 	return &UserController{
 		service: NewUserService(),
 	}
 }
 
-func (ctrl *UserController) CreateUser(c *gin.Context) {
-	var user User
-	
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"statusCode": http.StatusBadRequest,
+// GetMe returns the currently authenticated user's profile.
+// NOTE: Do NOT import middlewares here — middlewares imports user, creating a cycle.
+// Instead we read the context key directly (same logic as middlewares.GetUser).
+func (ctrl *UserController) GetMe(c *gin.Context) {
+	val, exists := c.Get("auth_user")
+	log.Println("auth_user", val, exists)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"statusCode": http.StatusUnauthorized,
 			"success":    false,
-			"message":    err.Error(),
+			"message":    "Unauthorized",
 			"data":       nil,
 		})
 		return
 	}
-	
-	createdUser, err := ctrl.service.CreateUser(&user)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"statusCode": http.StatusInternalServerError,
+	u, ok := val.(User)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"statusCode": http.StatusUnauthorized,
 			"success":    false,
-			"message":    err.Error(),
+			"message":    "Invalid session",
 			"data":       nil,
 		})
 		return
 	}
-	
-	c.JSON(http.StatusCreated, gin.H{
-		"statusCode": http.StatusCreated,
+
+	c.JSON(http.StatusOK, gin.H{
+		"statusCode": http.StatusOK,
 		"success":    true,
-		"message":    "User created successfully",
-		"data":       createdUser,
+		"message":    "Profile fetched successfully",
+		"data":       u,
 	})
 }
 
@@ -62,7 +65,7 @@ func (ctrl *UserController) GetUser(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	user, err := ctrl.service.GetUserByID(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
@@ -73,7 +76,7 @@ func (ctrl *UserController) GetUser(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"statusCode": http.StatusOK,
 		"success":    true,
@@ -87,13 +90,13 @@ func (ctrl *UserController) GetAllUsers(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"statusCode": http.StatusInternalServerError,
-			"success":  false,
-			"message": "Failed to fetch users " + err.Error() ,
-			"data":   nil,
+			"success":    false,
+			"message":    "Failed to fetch users: " + err.Error(),
+			"data":       nil,
 		})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"statusCode": http.StatusOK,
 		"success":    true,
@@ -102,47 +105,47 @@ func (ctrl *UserController) GetAllUsers(c *gin.Context) {
 	})
 }
 
+// UpdateUser allows a user to update only their own name/email.
 func (ctrl *UserController) UpdateUser(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": http.StatusBadRequest,
-			"success":  false,
-			"message": "Invalid user ID format",
+			"success":    false,
+			"message":    "Invalid user ID format",
 			"data":       nil,
 		})
 		return
 	}
-	
-	var user User
-	if err := c.ShouldBindJSON(&user); err != nil {
+
+	var payload dto.UpdateUserDto
+	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": http.StatusBadRequest,
-			"success":  false,
-			"message": "Invalid request body",
-			"data":   nil,
-		})
-		return
-	}
-	
-	user.ID = id
-	
-	if err := ctrl.service.UpdateUser(&user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"statusCode": http.StatusInternalServerError,
-			"success":  false,
-			"message": "Failed to update user " + err.Error(),
+			"success":    false,
+			"message":    "Invalid request body: " + err.Error(),
 			"data":       nil,
 		})
 		return
 	}
-	
+
+	updated, err := ctrl.service.UpdateUser(id, payload)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"statusCode": http.StatusBadRequest,
+			"success":    false,
+			"message":    err.Error(),
+			"data":       nil,
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"statusCode": http.StatusOK,
-		"success":  true,
-		"message": "User updated successfully",
-		"data":    user,
+		"success":    true,
+		"message":    "User updated successfully",
+		"data":       updated,
 	})
 }
 
@@ -152,27 +155,27 @@ func (ctrl *UserController) DeleteUser(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": http.StatusBadRequest,
-			"success":  false,
-			"message": "Invalid user ID format",
-			"data": nil,
+			"success":    false,
+			"message":    "Invalid user ID format",
+			"data":       nil,
 		})
 		return
 	}
-	
+
 	if err := ctrl.service.DeleteUser(id); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"statusCode": http.StatusNotFound,
-			"success":  false,
-			"message": "User not found " + err.Error(),
-			"data": nil,
+			"success":    false,
+			"message":    "User not found: " + err.Error(),
+			"data":       nil,
 		})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"statusCode": http.StatusOK,
-		"success":  true,
-		"message": "User deleted successfully",
-		"data": nil,
+		"success":    true,
+		"message":    "User deleted successfully",
+		"data":       nil,
 	})
 }
