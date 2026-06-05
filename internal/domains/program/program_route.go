@@ -2,14 +2,15 @@ package program
 
 import (
 	"pivote/internal/domains/user"
+	"pivote/internal/infra/rabbitmq"
 	"pivote/internal/middlewares"
 
 	"github.com/gin-gonic/gin"
 )
 
 // RegisterRoutes registers all program-related routes
-func RegisterRoutes(router *gin.RouterGroup) {
-	controller := NewProgramController()
+func RegisterRoutes(router *gin.RouterGroup, mq *rabbitmq.RabbitMQ) {
+	controller := NewProgramController(mq)
 
 	// User & Admin read routes
 	protected := router.Group("")
@@ -18,7 +19,7 @@ func RegisterRoutes(router *gin.RouterGroup) {
 	protected.GET("", controller.GetPrograms)        // GET /programs
 	protected.GET("/:id", controller.GetProgramById) // GET /programs/:id
 	protected.POST("/:id/join", controller.JoinProgram) // POST /programs/:id/join
-	protected.GET("/:id/access-code", controller.GetAccessCode) // GET /programs/:id/access-code
+	// protected.GET("/:id/access-code", controller.GetAccessCode) // GET /programs/:id/access-code
 
 	// Admin-only write routes
 	admin := router.Group("")

@@ -56,8 +56,8 @@ func main() {
 		log.Fatalf("Failed to initialize Socket.IO server: %v", err)
 	}
 
-	// Run migrations
-	if err := db.AutoMigrate(&user.User{}, &program.Program{}, &program.UserProgram{}, &candidate.Candidate{}, &otp.Otp{}, &vote.Vote{}); err != nil {
+		// Run migrations
+	if err := db.AutoMigrate(&user.User{}, &program.Program{}, &program.UserProgram{}, &program.ProgramAccessCode{}, &program.ProgramParticipant{}, &candidate.Candidate{}, &otp.Otp{}, &vote.Vote{}); err != nil {
 		panic("Failed to migrate database: " + err.Error())
 	}
 

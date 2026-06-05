@@ -22,6 +22,7 @@ func NewVoteService(socketio *websocket.SocketIOServer) *VoteService {
 }
 
 type ProgramVotesInfo struct {
+	ParticipantsCount	int64			`json:"participants_count"`
 	TotalVotes          int64            `json:"total_votes"`
 	VotesByCandidate    map[string]int64 `json:"votes_by_candidate"`
 	UserVoteCandidateID *string          `json:"user_vote_candidate_id"`
@@ -174,14 +175,21 @@ func (v *VoteService) GetProgramVotesInfo(programID, userID uuid.UUID) (*Program
 
 	var userVote Vote
 	var userVoteCandidateID *string = nil
+	var participantsCount int64 = 0
 
-	err := db.DB.Where("user_id = ? AND program_id = ?", userID, programID).First(&userVote).Error
+	err := db.DB.Model(&program.ProgramParticipant{}).Where("user_id = ? AND program_id = ?", userID, programID).Count(&participantsCount).Error
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.DB.Model(&Vote{}).Where("user_id = ? AND program_id = ?", userID, programID).First(&userVote).Error
 	if err == nil {
 		candidateIDStr := userVote.CandidateID.String()
 		userVoteCandidateID = &candidateIDStr
 	}
 
 	return &ProgramVotesInfo{
+		ParticipantsCount:   participantsCount,
 		TotalVotes:          totalVotes,
 		VotesByCandidate:    votesByCandidate,
 		UserVoteCandidateID: userVoteCandidateID,

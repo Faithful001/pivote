@@ -43,7 +43,7 @@ func SetupRouter(mq *rabbitmq.RabbitMQ, socketio *websocket.SocketIOServer) *gin
 
 	{
 		programRoutes := v1.Group("/programs")
-		program.RegisterRoutes(programRoutes)
+		program.RegisterRoutes(programRoutes, mq)
 	}
 
 	{

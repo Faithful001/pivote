@@ -82,6 +82,7 @@ func (c *EmailConsumer) sendEmail(msg EmailMessage) error {
 	purposeMap := map[dto.Purpose]string{
 		dto.PurposeVerifyAcct: "Verify your Account",
 		dto.PurposeResetPwd:   "Reset your Password",
+		dto.PurposeRequestVote: "Vote Access Code",
 	}
 
 	friendlyPurpose, ok := purposeMap[msg.Purpose]
@@ -89,11 +90,18 @@ func (c *EmailConsumer) sendEmail(msg EmailMessage) error {
 		friendlyPurpose = "Authentication"
 	}
 
+	var htmlBody string
+	if msg.Purpose == dto.PurposeRequestVote {
+		htmlBody = fmt.Sprintf("<p>Your access code to vote in the program is: <strong>%s</strong></p>", msg.Otp)
+	} else {
+		htmlBody = fmt.Sprintf("<p>Your OTP code to <strong>%s</strong> is: <strong>%s</strong></p>", friendlyPurpose, msg.Otp)
+	}
+
 	params := &resend.SendEmailRequest{
 		From:    "Pivote <admin@resend.dev>",
 		To:      []string{msg.Email},
 		Subject: fmt.Sprintf("%s - Pivote", friendlyPurpose),
-		Html:    fmt.Sprintf("<p>Your OTP code to <strong>%s</strong> is: <strong>%s</strong></p>", friendlyPurpose, msg.Otp),
+		Html:    htmlBody,
 	}
 
 	_, err := c.client.Emails.Send(params)
