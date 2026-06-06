@@ -14,6 +14,8 @@ type Program struct {
 	IsActive    bool      `gorm:"type:boolean;not null;default:true" json:"is_active"`
 	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+
+	// UserPrograms []UserProgram `gorm:"foreignKey:ProgramID" json:"user_programs,omitempty"`
 }
 
 func (Program) TableName() string {

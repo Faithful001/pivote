@@ -41,30 +41,18 @@ func (program *ProgramService) CreateProgram(payload dtos.CreateProgramDto) (*Pr
 }
 
 func (program *ProgramService) GetPrograms(userID uuid.UUID) ([]ProgramResponse, error) {
-	var programs []Program
-	result := db.DB.Find(&programs)
-	if result.Error != nil {
-		return nil, result.Error
+	var response []ProgramResponse
+
+	err := db.DB.Model(&Program{}).
+		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined").
+		Joins("LEFT JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID).
+		Find(&response).Error
+
+	if err != nil {
+		return nil, err
 	}
 
-	// Fetch joined program IDs for this user
-	var joined []uuid.UUID
-	db.DB.Model(&UserProgram{}).Where("user_id = ?", userID).Pluck("program_id", &joined)
-
-	joinedMap := make(map[uuid.UUID]bool)
-	for _, pid := range joined {
-		joinedMap[pid] = true
-	}
-
-	responses := make([]ProgramResponse, len(programs))
-	for i, p := range programs {
-		responses[i] = ProgramResponse{
-			Program:  p,
-			IsJoined: joinedMap[p.ID],
-		}
-	}
-
-	return responses, nil
+	return response, nil
 }
 
 func (program *ProgramService) GetProgramById(id uuid.UUID) (*Program, error) {
@@ -179,7 +167,7 @@ func (program *ProgramService) JoinProgram(userID, programID uuid.UUID, accessCo
 		return err
 	}
 
-	// 5. Create enrollment records in both UserProgram and ProgramParticipant
+	// 5. Create enrollment records in both UserProgram
 	enrollment := UserProgram{
 		UserID:    userID,
 		ProgramID: programID,
@@ -188,18 +176,10 @@ func (program *ProgramService) JoinProgram(userID, programID uuid.UUID, accessCo
 		return err
 	}
 
-	participant := ProgramParticipant{
-		UserID:    userID,
-		ProgramID: programID,
-	}
-	if err := db.DB.Create(&participant).Error; err != nil {
-		return err
-	}
-
 	return nil
 }
 
-func (program *ProgramService) RequestVote(userEmail string, userID, programID uuid.UUID, mq *rabbitmq.RabbitMQ) error {
+func (program *ProgramService) RequestVoteCode(userEmail string, userID, programID uuid.UUID, mq *rabbitmq.RabbitMQ) error {
 	// 1. Get the program
 	var foundProgram Program
 	if err := db.DB.Where("id = ?", programID).First(&foundProgram).Error; err != nil {
@@ -235,8 +215,7 @@ func (program *ProgramService) RequestVote(userEmail string, userID, programID u
 		} else {
 			return err
 		}
-	} else if pac.IsUsed {
-		// Reset code if already used to allow joining/re-requesting if necessary
+	} else {
 		pac.IsUsed = false
 		code := GenerateRandom4DigitCode()
 		encrypted, err := utils.Encrypt(code, utils.GetEncryptionKey())

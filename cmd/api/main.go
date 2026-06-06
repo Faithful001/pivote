@@ -57,7 +57,7 @@ func main() {
 	}
 
 		// Run migrations
-	if err := db.AutoMigrate(&user.User{}, &program.Program{}, &program.UserProgram{}, &program.ProgramAccessCode{}, &program.ProgramParticipant{}, &candidate.Candidate{}, &otp.Otp{}, &vote.Vote{}); err != nil {
+	if err := db.AutoMigrate(&user.User{}, &program.Program{}, &program.UserProgram{}, &program.ProgramAccessCode{}, &candidate.Candidate{}, &otp.Otp{}, &vote.Vote{}); err != nil {
 		panic("Failed to migrate database: " + err.Error())
 	}
 

@@ -20,7 +20,7 @@ type ProgramAccessCode struct {
 	ProgramID   uuid.UUID `gorm:"type:uuid;not null" json:"program_id"`
 	Program     Program   `gorm:"foreignKey:ProgramID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 	AccessCode  string    `gorm:"type:varchar(100);not null" json:"access_code"`
-	IsUsed		bool	`gorm:"type:boolean;not null;default:false" json:"is_used"`
+	IsUsed		bool	  `gorm:"type:boolean;not null;default:false" json:"is_used"`
 	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }

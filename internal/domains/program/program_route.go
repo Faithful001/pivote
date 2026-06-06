@@ -19,7 +19,7 @@ func RegisterRoutes(router *gin.RouterGroup, mq *rabbitmq.RabbitMQ) {
 	protected.GET("", controller.GetPrograms)        // GET /programs
 	protected.GET("/:id", controller.GetProgramById) // GET /programs/:id
 	protected.POST("/:id/join", controller.JoinProgram) // POST /programs/:id/join
-	// protected.GET("/:id/access-code", controller.GetAccessCode) // GET /programs/:id/access-code
+	protected.GET("/:id/request-code", controller.RequestVoteCode) // GET /programs/:id/access-code
 
 	// Admin-only write routes
 	admin := router.Group("")

@@ -306,7 +306,7 @@ func (ctrl *ProgramController) ToggleProgram(c *gin.Context) {
 	})
 }
 
-func (ctrl *ProgramController) RequestVote(c *gin.Context) {
+func (ctrl *ProgramController) RequestVoteCode(c *gin.Context) {
 	idParam := c.Param("id")
 	programID, err := uuid.Parse(idParam)
 	if err != nil {
@@ -330,7 +330,7 @@ func (ctrl *ProgramController) RequestVote(c *gin.Context) {
 		return
 	}
 
-	err = ctrl.service.RequestVote(user.Email, user.ID, programID, ctrl.mq)
+	err = ctrl.service.RequestVoteCode(user.Email, user.ID, programID, ctrl.mq)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": http.StatusBadRequest,

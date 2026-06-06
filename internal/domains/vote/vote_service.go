@@ -177,7 +177,7 @@ func (v *VoteService) GetProgramVotesInfo(programID, userID uuid.UUID) (*Program
 	var userVoteCandidateID *string = nil
 	var participantsCount int64 = 0
 
-	err := db.DB.Model(&program.ProgramParticipant{}).Where("user_id = ? AND program_id = ?", userID, programID).Count(&participantsCount).Error
+	err := db.DB.Model(&program.UserProgram{}).Where("user_id = ? AND program_id = ?", userID, programID).Count(&participantsCount).Error
 	if err != nil {
 		return nil, err
 	}
