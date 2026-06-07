@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"os"
 
 	authdto "pivote/internal/domains/auth/dto"
 	"pivote/internal/domains/otp"
@@ -9,6 +10,7 @@ import (
 	"pivote/internal/domains/user"
 	"pivote/internal/infra/db"
 	"pivote/internal/infra/rabbitmq"
+	"pivote/internal/types"
 	"pivote/internal/utils"
 
 	"gorm.io/gorm"
@@ -17,12 +19,14 @@ import (
 type AuthService struct {
 	userService *user.UserService
 	otpService  *otp.OtpService
+	jwtSecret string
 }
 
 func NewAuthService(mq *rabbitmq.RabbitMQ) *AuthService {
 	return &AuthService{
 		userService: user.NewUserService(),
 		otpService:  otp.NewOtpService(mq),
+		jwtSecret: os.Getenv("JWT_SECRET"),
 	}
 }
 
@@ -74,7 +78,20 @@ func (s *AuthService) Login(email, password string) (*AuthResponse, error) {
 	}
 
 	// Generate JWT token
-	token, err := utils.GenerateToken(user.ID, string(user.Role))
+	
+	jwtUtil, err := utils.NewJWTUtil(s.jwtSecret)
+
+	if err != nil {
+		return nil, err
+	}
+
+
+	token, err := jwtUtil.GenerateToken(utils.TokenOptions{
+		UserID:    user.ID,
+		Role:      string(user.Role),
+		Purpose:   types.JwtPurposeAuthentication,
+	})
+	
 	if err != nil {
 		return nil, err
 	}

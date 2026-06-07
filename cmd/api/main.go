@@ -13,6 +13,7 @@ import (
 	"pivote/internal/infra/websocket"
 	"pivote/internal/router"
 	"pivote/internal/workers/email"
+	otpWorker "pivote/internal/workers/otp"
 	"time"
 )
 
@@ -32,22 +33,33 @@ func main() {
 	}
 	defer mq.Close()
 
-	// Declare email queue
+	// Declare email queues
 	_, err = mq.DeclareQueue(rabbitmq.QueueConfig{
-		Name:    "email_otp",
+		Name:    "email.transactional",
 		Durable: true,
 	})
 	if err != nil {
-		log.Printf("Failed to declare queue: %v", err)
+		log.Printf("Failed to declare queue email.transactional: %v", err)
 	}
 
-	// Start Email Worker
-	emailConsumer := email.NewEmailConsumer(mq)
-	emailConsumer.Start()
+	_, err = mq.DeclareQueue(rabbitmq.QueueConfig{
+		Name:    "email.notifications",
+		Durable: true,
+	})
+	if err != nil {
+		log.Printf("Failed to declare queue email.notifications: %v", err)
+	}
+
+	// Start Email Workers
+	transactionalConsumer := email.NewEmailConsumer(mq, "email.transactional")
+	transactionalConsumer.Start()
+
+	notificationConsumer := email.NewEmailConsumer(mq, "email.notifications")
+	notificationConsumer.Start()
 
 	// Start OTP Cleanup Worker
 	otpService := otp.NewOtpService(mq)
-	otpCleanupWorker := otp.NewOtpCleanupWorker(otpService)
+	otpCleanupWorker := otpWorker.NewOtpCleanupWorker(otpService)
 	otpCleanupWorker.Start()
 
 	// Initialize Socket.IO Server
@@ -57,7 +69,7 @@ func main() {
 	}
 
 		// Run migrations
-	if err := db.AutoMigrate(&user.User{}, &program.Program{}, &program.UserProgram{}, &program.ProgramAccessCode{}, &candidate.Candidate{}, &otp.Otp{}, &vote.Vote{}); err != nil {
+	if err := db.AutoMigrate(&user.User{}, &program.Program{}, &program.UserProgram{}, &program.ProgramAccessToken{}, &candidate.Candidate{}, &otp.Otp{}, &vote.Vote{}); err != nil {
 		panic("Failed to migrate database: " + err.Error())
 	}
 

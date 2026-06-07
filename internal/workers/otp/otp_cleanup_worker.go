@@ -3,15 +3,17 @@ package otp
 import (
 	"log"
 	"time"
+
+	domainOtp "pivote/internal/domains/otp"
 )
 
 type OtpCleanupWorker struct {
-	otpService *OtpService
+	otpService *domainOtp.OtpService
 	ticker     *time.Ticker
 	done       chan bool
 }
 
-func NewOtpCleanupWorker(otpService *OtpService) *OtpCleanupWorker {
+func NewOtpCleanupWorker(otpService *domainOtp.OtpService) *OtpCleanupWorker {
 	return &OtpCleanupWorker{
 		otpService: otpService,
 		ticker:     time.NewTicker(5 * time.Minute),

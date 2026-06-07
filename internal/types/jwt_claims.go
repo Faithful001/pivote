@@ -1,15 +1,25 @@
 package types
 
-import "github.com/golang-jwt/jwt/v5"
+import (
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+)
 
-// CustomClaims represents the custom JWT claims with additional fields
+type JwtPurpose string
+
+const (
+	JwtPurposeAuthentication JwtPurpose = "authentication"
+	JwtPurposeResetPwd       JwtPurpose = "reset_pwd"
+	JwtPurposeProgramJoin    JwtPurpose = "program_join"
+)
+
 type CustomClaims struct {
 	jwt.RegisteredClaims
-	UserID      string   	`json:"user_id"`
-	Email       string   	`json:"email"`
-	Name        string		`json:"name"`
-	IsVerified	bool		`json:"is_verified"`
-	Role        string   	`json:"role"`
-	Permissions []string 	`json:"permissions,omitempty"`
-	Purpose		string		`json:"purpose"`
+	Email       string     `json:"email,omitempty"`
+	Name        string     `json:"name,omitempty"`
+	IsVerified  bool       `json:"is_verified,omitempty"`
+	Role        string     `json:"role,omitempty"`
+	Permissions []string   `json:"permissions,omitempty"`
+	Purpose     JwtPurpose `json:"purpose"`
+	ProgramID   *uuid.UUID `json:"program_id,omitempty"`
 }

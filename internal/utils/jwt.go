@@ -2,7 +2,6 @@ package utils
 
 import (
 	"errors"
-	"os"
 	"pivote/internal/types"
 	"time"
 
@@ -10,35 +9,58 @@ import (
 	"github.com/google/uuid"
 )
 
-// GenerateToken creates a signed JWT token for a user
-func GenerateToken(userID uuid.UUID, role string) (string, error) {
-	// Get secret key from environment
-	secretKey := os.Getenv("JWT_SECRET")
-	if secretKey == "" {
-		return "", errors.New("JWT_SECRET environment variable not set")
+type TokenOptions struct {
+	UserID    uuid.UUID
+	Role      string
+	Purpose   types.JwtPurpose
+	ProgramID *uuid.UUID
+	ExpiresAt *time.Time // nil defaults to 24h
+}
+
+type JWTUtil struct {
+	secret []byte
+}
+
+func NewJWTUtil(secret string) (*JWTUtil, error) {
+	if secret == "" {
+		return nil, errors.New("jwt secret must not be empty")
+	}
+	return &JWTUtil{secret: []byte(secret)}, nil
+}
+
+func (j *JWTUtil) GenerateToken(opts TokenOptions) (string, error) {
+	expiry := time.Now().Add(24 * time.Hour)
+	if opts.ExpiresAt != nil {
+		expiry = *opts.ExpiresAt
 	}
 
-	// Create claims
 	claims := types.CustomClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(expiry),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Subject:   userID.String(),
+			Subject:   opts.UserID.String(),
 		},
-		UserID:      	userID.String(),
-		Role:        	role,
-		Permissions: 	[]string{},
-		// Purpose: 		purpose,
+		Role:      opts.Role,
+		Purpose:   opts.Purpose,
+		ProgramID: opts.ProgramID,
 	}
 
-	// Create token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(j.secret)
+}
 
-	// Sign token
-	signedToken, err := token.SignedString([]byte(secretKey))
-	if err != nil {
-		return "", err
+func (j *JWTUtil) ParseToken(tokenStr string) (*types.CustomClaims, error) {
+	claims := &types.CustomClaims{}
+
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return j.secret, nil
+	})
+	if err != nil || !token.Valid {
+		return nil, errors.New("invalid or expired token")
 	}
 
-	return signedToken, nil
+	return claims, nil
 }

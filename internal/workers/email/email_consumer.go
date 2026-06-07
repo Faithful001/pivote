@@ -1,8 +1,11 @@
 package email
 
 import (
+	"bytes"
+	"embed"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"os"
 
@@ -14,33 +17,48 @@ import (
 	"github.com/resend/resend-go/v3"
 )
 
+//go:embed templates/*
+var templateFS embed.FS
+
 type EmailMessage struct {
-	Email 	string `json:"email"`
-	Otp   	string `json:"otp"`
-	Purpose dto.Purpose `json:"purpose"`
+	Email        string      `json:"email"`
+	Otp          string      `json:"otp"`
+	JoinLink     string      `json:"join_link"`
+	RegisterLink string      `json:"register_link"`
+	ProgramName  string      `json:"program_name"`
+	Purpose      dto.Purpose `json:"purpose"`
 }
 
 type EmailConsumer struct {
-	mq     *rabbitmq.RabbitMQ
-	client *resend.Client
+	mq        *rabbitmq.RabbitMQ
+	client    *resend.Client
+	templates *template.Template
+	queueName string
 }
 
-func NewEmailConsumer(mq *rabbitmq.RabbitMQ) *EmailConsumer {
+func NewEmailConsumer(mq *rabbitmq.RabbitMQ, queueName string) *EmailConsumer {
 	apiKey := os.Getenv("RESEND_API_KEY")
 	if apiKey == "" {
 		log.Println("WARNING: RESEND_API_KEY is not set. Emails will not be sent.")
 	}
+
+	tmpl, err := template.ParseFS(templateFS, "templates/*.html")
+	if err != nil {
+		log.Fatalf("Failed to parse embedded email templates: %v", err)
+	}
 	
 	return &EmailConsumer{
-		mq:     mq,
-		client: resend.NewClient(apiKey),
+		mq:        mq,
+		client:    resend.NewClient(apiKey),
+		templates: tmpl,
+		queueName: queueName,
 	}
 }
 
 func (c *EmailConsumer) Start() {
 	msgs, err := c.mq.Consume(rabbitmq.ConsumeConfig{
-		Queue:     "email_otp",
-		Consumer:  "email_worker",
+		Queue:     c.queueName,
+		Consumer:  c.queueName + "_worker",
 		AutoAck:   false, // ack manually after sending
 		Exclusive: false,
 		NoLocal:   false,
@@ -48,7 +66,7 @@ func (c *EmailConsumer) Start() {
 		Args:      nil,
 	})
 	if err != nil {
-		log.Printf("Failed to start email consumer: %v", err)
+		log.Printf("Failed to start email consumer for %s: %v", c.queueName, err)
 		return
 	}
 
@@ -80,28 +98,39 @@ func (c *EmailConsumer) processMessages(msgs <-chan ampq.Delivery) {
 
 func (c *EmailConsumer) sendEmail(msg EmailMessage) error {
 	purposeMap := map[dto.Purpose]string{
-		dto.PurposeVerifyAcct: "Verify your Account",
-		dto.PurposeResetPwd:   "Reset your Password",
-		dto.PurposeRequestVote: "Vote Access Code",
-	}
+    dto.PurposeVerifyAcct:      "Verify your Account",
+    dto.PurposeResetPwd:        "Reset your Password",
+    dto.PurposeRequestJoinLink: "Join Program",
+    dto.PurposeRegisterToJoin:  "You've Been Invited to Join a Program", 
+}
+
+templateMap := map[dto.Purpose]string{
+    dto.PurposeVerifyAcct:      "verify_account.html",
+    dto.PurposeResetPwd:        "reset_password.html",
+    dto.PurposeRequestJoinLink: "request_join_link.html",
+    dto.PurposeRegisterToJoin:  "register_to_join.html", 
+}
 
 	friendlyPurpose, ok := purposeMap[msg.Purpose]
 	if !ok {
 		friendlyPurpose = "Authentication"
 	}
 
-	var htmlBody string
-	if msg.Purpose == dto.PurposeRequestVote {
-		htmlBody = fmt.Sprintf("<p>Your access code to vote in the program is: <strong>%s</strong></p>", msg.Otp)
-	} else {
-		htmlBody = fmt.Sprintf("<p>Your OTP code to <strong>%s</strong> is: <strong>%s</strong></p>", friendlyPurpose, msg.Otp)
+	templateName, ok := templateMap[msg.Purpose]
+	if !ok {
+		return fmt.Errorf("no email template defined for purpose: %s", msg.Purpose)
+	}
+
+	var htmlBody bytes.Buffer
+	if err := c.templates.ExecuteTemplate(&htmlBody, templateName, msg); err != nil {
+		return fmt.Errorf("failed to execute template: %w", err)
 	}
 
 	params := &resend.SendEmailRequest{
-		From:    "Pivote <admin@resend.dev>",
+		From:    "Pivote <noreply@faithfulking.xyz>",
 		To:      []string{msg.Email},
 		Subject: fmt.Sprintf("%s - Pivote", friendlyPurpose),
-		Html:    htmlBody,
+		Html:    htmlBody.String(),
 	}
 
 	_, err := c.client.Emails.Send(params)

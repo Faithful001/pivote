@@ -15,11 +15,16 @@ type ProgramController struct {
 	mq      *rabbitmq.RabbitMQ
 }
 
-func NewProgramController(mq *rabbitmq.RabbitMQ) ProgramController {
-	return ProgramController{
-		service: NewProgramService(),
-		mq:      mq,
+func NewProgramController(mq *rabbitmq.RabbitMQ) (*ProgramController, error) {
+	programService, err := NewProgramService(mq)
+	if err != nil {
+		return nil, err
 	}
+
+	return &ProgramController{
+		service: programService,
+		mq:      mq,
+	}, nil
 }
 
 func (ctrl *ProgramController) CreateProgram(c *gin.Context) {
@@ -217,31 +222,21 @@ func (ctrl *ProgramController) JoinProgram(c *gin.Context) {
 	}
 
 	var payload struct {
-		AccessCode string `json:"access_code" binding:"required"`
+		// Email string `json:"email" binding:"required"`
+		Token string `json:"token" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": http.StatusBadRequest,
 			"success":    false,
-			"message":    "Access code is required",
+			"message":    "Email and token are required",
 			"data":       nil,
 		})
 		return
 	}
 
-	user, err := middlewares.GetUser(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"statusCode": http.StatusUnauthorized,
-			"success":    false,
-			"message":    "Unauthorized",
-			"data":       nil,
-		})
-		return
-	}
-
-	err = ctrl.service.JoinProgram(user.ID, programID, payload.AccessCode)
+	err = ctrl.service.JoinProgram(programID, payload.Token)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": http.StatusBadRequest,
@@ -306,7 +301,7 @@ func (ctrl *ProgramController) ToggleProgram(c *gin.Context) {
 	})
 }
 
-func (ctrl *ProgramController) RequestVoteCode(c *gin.Context) {
+func (ctrl *ProgramController) RequestJoinLink(c *gin.Context) {
 	idParam := c.Param("id")
 	programID, err := uuid.Parse(idParam)
 	if err != nil {
@@ -319,18 +314,21 @@ func (ctrl *ProgramController) RequestVoteCode(c *gin.Context) {
 		return
 	}
 
-	user, err := middlewares.GetUser(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"statusCode": http.StatusUnauthorized,
+	var payload struct {
+		Email string `json:"email" binding:"required"`
+	}
+
+	if err := c.ShouldBindBodyWithJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"statusCode": http.StatusBadRequest,
 			"success":    false,
-			"message":    "Unauthorized",
+			"message":    "Invalid request payload",
 			"data":       nil,
 		})
 		return
 	}
 
-	err = ctrl.service.RequestVoteCode(user.Email, user.ID, programID, ctrl.mq)
+	err = ctrl.service.RequestJoinLink(payload.Email, programID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": http.StatusBadRequest,
@@ -344,7 +342,7 @@ func (ctrl *ProgramController) RequestVoteCode(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"statusCode": http.StatusOK,
 		"success":    true,
-		"message":    "Access code sent to your email successfully",
+		"message":    "Join link sent to email successfully",
 		"data":       nil,
 	})
 }

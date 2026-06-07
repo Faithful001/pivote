@@ -2,22 +2,41 @@ package program
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
+	"os"
+	"pivote/internal/domains/otp/dto"
 	dtos "pivote/internal/domains/program/dto"
+	"pivote/internal/domains/user"
 	"pivote/internal/infra/db"
 	"pivote/internal/infra/rabbitmq"
+	"pivote/internal/types"
 	"pivote/internal/utils"
+	"time"
 
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"gorm.io/gorm"
 )
 
-type ProgramService struct{}
 
-func NewProgramService() *ProgramService {
-	return &ProgramService{}
+type ProgramService struct {
+	jwtUtil *utils.JWTUtil
+	mq      *rabbitmq.RabbitMQ
+}
+
+func NewProgramService(mq *rabbitmq.RabbitMQ) (*ProgramService, error) {
+	jwtUtil, err := utils.NewJWTUtil(os.Getenv("JWT_SECRET"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize jwt util: %w", err)
+	}
+
+	return &ProgramService{
+		jwtUtil: jwtUtil,
+		mq:      mq,
+	}, nil
 }
 
 type ProgramResponse struct {
@@ -118,136 +137,219 @@ func (program *ProgramService) DeleteProgram(id uuid.UUID) (*Program, error) {
 	return &existingProgram, nil
 }
 
-func (program *ProgramService) JoinProgram(userID, programID uuid.UUID, accessCode string) error {
-	// 1. Get the program
-	var foundProgram Program
-	if err := db.DB.Where("id = ?", programID).First(&foundProgram).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Program not found")
-		}
-		return err
-	}
-
-	if !foundProgram.IsActive {
-		return errors.New("Program is closed")
-	}
-
-	// 2. Validate access code
-	var pac ProgramAccessCode
-	if err := db.DB.Where("user_id = ? AND program_id = ?", userID, programID).First(&pac).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Access code not requested for this program")
-		}
-		return err
-	}
-
-	decrypted, err := utils.Decrypt(pac.AccessCode, utils.GetEncryptionKey())
+func (p *ProgramService) JoinProgram(programID uuid.UUID, tokenStr string) error {
+	claims, err := p.jwtUtil.ParseToken(tokenStr)
 	if err != nil {
-		return errors.New("Failed to decrypt access code")
-	}
-
-	if decrypted != accessCode {
-		return errors.New("Invalid access code")
-	}
-
-	if pac.IsUsed {
-		return errors.New("Access code has already been used")
-	}
-
-	// 3. Check if already joined
-	var count int64
-	db.DB.Model(&UserProgram{}).Where("user_id = ? AND program_id = ?", userID, programID).Count(&count)
-	if count > 0 {
-		return nil // Idempotent: already joined
-	}
-
-	// 4. Mark access code as used
-	pac.IsUsed = true
-	if err := db.DB.Save(&pac).Error; err != nil {
 		return err
 	}
 
-	// 5. Create enrollment records in both UserProgram
-	enrollment := UserProgram{
-		UserID:    userID,
-		ProgramID: programID,
-	}
-	if err := db.DB.Create(&enrollment).Error; err != nil {
-		return err
+	if claims.Purpose != types.JwtPurposeProgramJoin {
+		return errors.New("invalid or expired token")
 	}
 
-	return nil
+	if claims.ProgramID == nil || *claims.ProgramID != programID {
+		return errors.New("invalid or expired token")
+	}
+
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		return errors.New("invalid or expired token")
+	}
+
+	var foundUser user.User
+	return db.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("id = ?", userID).First(&foundUser).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("invalid or expired token")
+			}
+			return err
+		}
+
+		var foundProgram Program
+		if err := tx.Where("id = ?", programID).First(&foundProgram).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("program not found")
+			}
+			return err
+		}
+		if !foundProgram.IsActive {
+			return errors.New("program is closed")
+		}
+
+		var pac ProgramAccessToken
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").
+			Where("user_id = ? AND program_id = ?", foundUser.ID, programID).
+			First(&pac).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("invalid or expired join link")
+			}
+			return err
+		}
+
+		if pac.IsUsed {
+			return errors.New("invalid or expired join link")
+		}
+
+		var count int64
+		if err := tx.Model(&UserProgram{}).
+			Where("user_id = ? AND program_id = ?", foundUser.ID, programID).
+			Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return nil
+		}
+
+		pac.IsUsed = true
+		if err := tx.Save(&pac).Error; err != nil {
+			return err
+		}
+
+		return tx.Create(&UserProgram{
+			UserID:    foundUser.ID,
+			ProgramID: programID,
+		}).Error
+	})
 }
 
-func (program *ProgramService) RequestVoteCode(userEmail string, userID, programID uuid.UUID, mq *rabbitmq.RabbitMQ) error {
-	// 1. Get the program
+func (p *ProgramService) RequestJoinLink(userEmail string, programID uuid.UUID) error {
+	// 2. Verify program exists and is active first
+	// (no point doing anything if the program is invalid)
 	var foundProgram Program
 	if err := db.DB.Where("id = ?", programID).First(&foundProgram).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Program not found")
+			return errors.New("program not found")
 		}
 		return err
 	}
-
 	if !foundProgram.IsActive {
-		return errors.New("Program is closed")
+		return errors.New("program is closed")
 	}
 
-	// 2. Check if already joined
+	// 1. Check if user exists
+	var foundUser user.User
+	userErr := db.DB.Where("email = ?", userEmail).First(&foundUser).Error
+
+	if userErr != nil && !errors.Is(userErr, gorm.ErrRecordNotFound) {
+		return userErr // real DB error
+	}
+
+	// user does not exist — send registration nudge email and return
+	if errors.Is(userErr, gorm.ErrRecordNotFound) {
+		return p.sendRegistrationNudge(userEmail, programID, foundProgram.Name)
+	}
+
+	// 3. Check if already enrolled
 	var count int64
-	db.DB.Model(&UserProgram{}).Where("user_id = ? AND program_id = ?", userID, programID).Count(&count)
+	if err := db.DB.Model(&UserProgram{}).
+		Where("user_id = ? AND program_id = ?", foundUser.ID, programID).
+		Count(&count).Error; err != nil {
+		return err
+	}
 	if count > 0 {
-		return errors.New("You have already joined this program")
+		return errors.New("you have already joined this program")
 	}
 
-	// 3. Get or create ProgramAccessCode for this user/program
-	var pac ProgramAccessCode
-	err := db.DB.Where("user_id = ? AND program_id = ?", userID, programID).First(&pac).Error
+	// 4. Generate a fresh JWT
+	expiresAt := time.Now().Add(5 * time.Minute)
+	token, err := p.jwtUtil.GenerateToken(utils.TokenOptions{
+		UserID:    foundUser.ID,
+		Role:      string(user.RoleUser),
+		Purpose:   types.JwtPurposeProgramJoin,
+		ProgramID: &programID,
+		ExpiresAt: &expiresAt,
+	})
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			pac = ProgramAccessCode{
-				UserID:    userID,
-				ProgramID: programID,
-			}
-			if err := db.DB.Create(&pac).Error; err != nil {
-				return err
-			}
-		} else {
+		return fmt.Errorf("failed to generate join token: %w", err)
+	}
+
+	// 5. Upsert the ProgramAccessToken
+	var pac ProgramAccessToken
+	err = db.DB.Where("user_id = ? AND program_id = ?", foundUser.ID, programID).First(&pac).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		pac = ProgramAccessToken{
+			UserID:      foundUser.ID,
+			ProgramID:   programID,
+			AccessToken: token,
+		}
+		if err := db.DB.Create(&pac).Error; err != nil {
 			return err
 		}
 	} else {
+		pac.AccessToken = token
 		pac.IsUsed = false
-		code := GenerateRandom4DigitCode()
-		encrypted, err := utils.Encrypt(code, utils.GetEncryptionKey())
-		if err != nil {
-			return err
-		}
-		pac.AccessCode = encrypted
 		if err := db.DB.Save(&pac).Error; err != nil {
 			return err
 		}
 	}
 
-	// 4. Decrypt access code
-	decrypted, err := utils.Decrypt(pac.AccessCode, utils.GetEncryptionKey())
-	if err != nil {
-		return errors.New("Failed to decrypt access code")
+	// 6. Build join link
+	baseURL := "http://localhost:5173"
+	if os.Getenv("ENV") == "production" {
+		baseURL = "https://pivote.ng"
+	}
+	joinLink := fmt.Sprintf("%s/programs/%s/join?token=%s&email=%s&name=%s",
+		baseURL,
+		programID.String(),
+		token,
+		url.QueryEscape(userEmail),
+		url.QueryEscape(foundProgram.Name),
+	)
+
+	// 7. Publish join link email
+	return p.publishEmail(map[string]string{
+		"email":     userEmail,
+		"join_link": joinLink,
+		"purpose":   string(dto.PurposeRequestJoinLink),
+	})
+}
+
+// sendRegistrationNudge sends an email to unregistered users
+// with a link to register before joining the program
+func (p *ProgramService) sendRegistrationNudge(userEmail string, programID uuid.UUID, programName string) error {
+	baseURL := "http://localhost:5173"
+	if os.Getenv("ENV") == "production" {
+		baseURL = "https://pivote.ng"
 	}
 
-	// 5. Publish to RabbitMQ
-	body := fmt.Sprintf(`{"email":"%s","otp":"%s","purpose":"%s"}`, userEmail, decrypted, "request_vote")
+	// register link carries the program context so the frontend
+	// can redirect back to the join flow after registration
+	registerLink := fmt.Sprintf("%s/register?email=%s&program_id=%s&program_name=%s",
+		baseURL,
+		url.QueryEscape(userEmail),
+		programID.String(),
+		url.QueryEscape(programName),
+	)
 
-	err = mq.Publish(context.Background(), rabbitmq.PublishConfig{
+	return p.publishEmail(map[string]string{
+		"email":         userEmail,
+		"register_link": registerLink,
+		"program_name":  programName,
+		"purpose":       string(dto.PurposeRegisterToJoin),
+	})
+}
+
+// publishEmail is a helper to avoid repeating the publish block
+func (p *ProgramService) publishEmail(msg map[string]string) error {
+	body, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal email message: %w", err)
+	}
+
+	if err := p.mq.Publish(context.Background(), rabbitmq.PublishConfig{
 		Exchange:   "",
-		RoutingKey: "email_otp",
+		RoutingKey: "email.notifications",
 		Mandatory:  false,
 		Immediate:  false,
 		Message: amqp.Publishing{
 			ContentType: "application/json",
-			Body:        []byte(body),
+			Body:        body,
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		return fmt.Errorf("failed to queue email: %w", err)
 	}
 

@@ -1,4 +1,4 @@
-package dtos
+package dto
 
 type UpdateProgramDto struct {
 	Name        string `gorm:"type:string" json:"name"`

@@ -61,7 +61,7 @@ func Auth(cfg AuthConfig) gin.HandlerFunc {
 		}
 
 		// Parse user ID from claims
-		userID, err := uuid.Parse(claims.UserID)
+		userID, err := uuid.Parse(claims.Subject)
 		if err != nil {
 			unauthorized(c, "Invalid user ID in token")
 			c.Abort()
@@ -90,6 +90,13 @@ func Auth(cfg AuthConfig) gin.HandlerFunc {
 		//IsVerified check
 		if !authUser.IsVerified {
 			forbidden(c, "User is not verified")
+			c.Abort()
+			return
+		}
+
+		//purpose check
+		if claims.Purpose != types.JwtPurposeAuthentication {
+			forbidden(c, "Invalid token purpose")
 			c.Abort()
 			return
 		}

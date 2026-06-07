@@ -67,7 +67,7 @@ func (s *OtpService) SendOtpToEmail(email string, purpose dto.Purpose) error {
 
 	err = s.mq.Publish(context.Background(), rabbitmq.PublishConfig{
 		Exchange:   "", 
-		RoutingKey: "email_otp",
+		RoutingKey: "email.transactional",
 		Mandatory:  false,
 		Immediate:  false,
 		Message: amqp.Publishing{
