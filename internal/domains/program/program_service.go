@@ -316,8 +316,6 @@ func (p *ProgramService) sendRegistrationNudge(userEmail string, programID uuid.
 		baseURL = "https://pivote.ng"
 	}
 
-	// register link carries the program context so the frontend
-	// can redirect back to the join flow after registration
 	registerLink := fmt.Sprintf("%s/register?email=%s&program_id=%s&program_name=%s",
 		baseURL,
 		url.QueryEscape(userEmail),
