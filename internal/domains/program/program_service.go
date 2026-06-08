@@ -51,7 +51,6 @@ func (program *ProgramService) CreateProgram(payload dtos.CreateProgramDto) (*Pr
 		Description: payload.Description,
 	}
 
-	// Create the program in the database
 	result := db.DB.Create(&newProgram)
 	if result.Error != nil {
 		return nil, result.Error
