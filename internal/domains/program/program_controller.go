@@ -74,7 +74,7 @@ func (ctrl *ProgramController) GetPrograms(c *gin.Context) {
 	}
 	userID := user.ID
 
-	result, err := ctrl.service.GetPrograms(userID)
+	result, err := ctrl.service.GetPrograms(userID, user.Role)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -108,7 +108,19 @@ func (ctrl *ProgramController) GetProgramById(c *gin.Context) {
 		return
 	}
 
-	result, err := ctrl.service.GetProgramById(id)
+	user, err := middlewares.GetUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"statusCode": http.StatusUnauthorized,
+			"success":    false,
+			"message":    "Unauthorized",
+			"data":       nil,
+		})
+		return
+	}
+	userID := user.ID
+
+	result, err := ctrl.service.GetProgramById(id, userID, user.Role)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{

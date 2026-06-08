@@ -86,9 +86,6 @@ func (s *UserService) UpdateUser(id uuid.UUID, payload dto.UpdateUserDto) (*User
 	if payload.Name != "" {
 		existing.Name = payload.Name
 	}
-	if payload.Email != "" {
-		existing.Email = payload.Email
-	}
 
 	if err := db.DB.Save(&existing).Error; err != nil {
 		return nil, err

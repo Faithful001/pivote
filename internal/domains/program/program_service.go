@@ -44,6 +44,7 @@ type ProgramResponse struct {
 	IsJoined bool `json:"is_joined"`
 }
 
+// Create Program - admins only
 func (program *ProgramService) CreateProgram(payload dtos.CreateProgramDto) (*Program, error) {
 	newProgram := Program{
 		Name:        payload.Name,
@@ -59,13 +60,22 @@ func (program *ProgramService) CreateProgram(payload dtos.CreateProgramDto) (*Pr
 	return &newProgram, nil
 }
 
-func (program *ProgramService) GetPrograms(userID uuid.UUID) ([]ProgramResponse, error) {
+func (program *ProgramService) GetPrograms(userID uuid.UUID, role user.Role) ([]ProgramResponse, error) {
 	var response []ProgramResponse
 
-	err := db.DB.Model(&Program{}).
+	var err error
+	
+	if role == user.RoleUser {
+		err = db.DB.Model(&Program{}).
+		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined").
+		Joins("JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID).
+		Find(&response).Error
+	} else if role == user.RoleAdmin {
+		err = db.DB.Model(&Program{}).
 		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined").
 		Joins("LEFT JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID).
 		Find(&response).Error
+	}
 
 	if err != nil {
 		return nil, err
@@ -74,17 +84,25 @@ func (program *ProgramService) GetPrograms(userID uuid.UUID) ([]ProgramResponse,
 	return response, nil
 }
 
-func (program *ProgramService) GetProgramById(id uuid.UUID) (*Program, error) {
-	// query the database to get program by the id provided
-	var foundProgram Program
-	result := db.DB.Where("id = ?", id).First(&foundProgram)
 
-	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		return nil, errors.New("Program not found")
+func (p *ProgramService) GetProgramById(id uuid.UUID, userID uuid.UUID, role user.Role) (*ProgramResponse, error) {
+	var foundProgram ProgramResponse
+
+	query := db.DB.Model(&Program{}).
+		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined").
+		Where("programs.id = ?", id)
+
+	if role == user.RoleUser {
+		query = query.Joins("JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID)
+	} else if role == user.RoleAdmin {
+		query = query.Joins("LEFT JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID)
 	}
 
-	if result.Error != nil {
-		return nil, fmt.Errorf("Database error: %v", result.Error)
+	if err := query.First(&foundProgram).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("program not found")
+		}
+		return nil, err
 	}
 
 	return &foundProgram, nil

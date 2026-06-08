@@ -1,7 +1,6 @@
 package user
 
 import (
-	"log"
 	"net/http"
 	"pivote/internal/domains/user/dto"
 
@@ -24,7 +23,6 @@ func NewUserController() *UserController {
 // Instead we read the context key directly (same logic as middlewares.GetUser).
 func (ctrl *UserController) GetMe(c *gin.Context) {
 	val, exists := c.Get("auth_user")
-	log.Println("auth_user", val, exists)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"statusCode": http.StatusUnauthorized,
