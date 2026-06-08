@@ -64,12 +64,13 @@ func (program *ProgramService) GetPrograms(userID uuid.UUID, role user.Role) ([]
 
 	var err error
 	
-	if role == user.RoleUser {
+	switch role {
+	case user.RoleUser:
 		err = db.DB.Model(&Program{}).
 		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined").
 		Joins("JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID).
 		Find(&response).Error
-	} else if role == user.RoleAdmin {
+	case user.RoleAdmin:
 		err = db.DB.Model(&Program{}).
 		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined").
 		Joins("LEFT JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID).
@@ -91,9 +92,10 @@ func (p *ProgramService) GetProgramById(id uuid.UUID, userID uuid.UUID, role use
 		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined").
 		Where("programs.id = ?", id)
 
-	if role == user.RoleUser {
+	switch role {
+	case user.RoleUser:
 		query = query.Joins("JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID)
-	} else if role == user.RoleAdmin {
+	case user.RoleAdmin:
 		query = query.Joins("LEFT JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID)
 	}
 

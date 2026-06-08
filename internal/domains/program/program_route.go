@@ -16,16 +16,15 @@ func RegisterRoutes(router *gin.RouterGroup, mq *rabbitmq.RabbitMQ) {
 		panic(fmt.Sprintf("failed to initialize program controller: %v", err))
 	}
 
-	// Public route. authenticated by email+token, no JWT required
-	router.POST("/:id/join", controller.JoinProgram) // POST /programs/:id/join
-	router.POST("/:id/request-join", controller.RequestJoinLink) // POST /programs/:id/request-join
+	router.POST("/:id/join", controller.JoinProgram) 
+	router.POST("/:id/request-join", controller.RequestJoinLink)
 
 	// User & Admin protected routes
 	protected := router.Group("")
 	protected.Use(middlewares.Standard(user.RoleAdmin, user.RoleUser))
 
-	protected.GET("", controller.GetPrograms)              // GET /programs
-	protected.GET("/:id", controller.GetProgramById)       // GET /programs/:id
+	protected.GET("", controller.GetPrograms) 
+	protected.GET("/:id", controller.GetProgramById)       
 
 	// Admin-only write routes
 	admin := router.Group("")

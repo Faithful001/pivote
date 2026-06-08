@@ -6,12 +6,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RegisterRoutes registers all auth-related routes
 func RegisterRoutes(router *gin.RouterGroup, mq *rabbitmq.RabbitMQ) {
 	controller := NewAuthController(mq)
 
-	// Auth routes
-	router.POST("/register", controller.Register) // POST /auth/register
-	router.POST("/login", controller.Login)       // POST /auth/login
-	router.POST("/verify-account", controller.VerifyAccount)       // POST /auth/verify-account
+	router.POST("/register", controller.Register) 
+	router.POST("/login", controller.Login)       
+	router.POST("/verify-account", controller.VerifyAccount)      
 }
