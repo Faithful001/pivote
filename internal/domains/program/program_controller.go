@@ -1,6 +1,7 @@
 package program
 
 import (
+	"fmt"
 	"net/http"
 	dtos "pivote/internal/domains/program/dto"
 	"pivote/internal/infra/rabbitmq"
@@ -308,8 +309,11 @@ func (ctrl *ProgramController) ToggleProgram(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"statusCode": http.StatusOK,
 		"success":    true,
-		"message":    "Program active status updated successfully",
-		"data":       result,
+		"message":    fmt.Sprintf("Voting status %s", map[bool]string{
+			true:  "turned on",
+			false: "turned off",
+		}[result.IsActive]),
+		"data": result,
 	})
 }
 

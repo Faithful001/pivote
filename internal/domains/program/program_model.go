@@ -8,12 +8,13 @@ import (
 )
 
 type Program struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	Name        string    `gorm:"type:varchar(255);not null" json:"name"`
-	Description string    `gorm:"type:text" json:"description"`
-	IsActive    bool      `gorm:"type:boolean;not null;default:true" json:"is_active"`
-	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt   time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	Name         string    `gorm:"type:varchar(255);not null" json:"name"`
+	Description  string    `gorm:"type:text" json:"description"`
+	IsActive     bool      `gorm:"type:boolean;not null;default:false" json:"is_active"`
+	VotingEndsAt time.Time `gorm:"type:timestamp;not null" json:"voting_ends_at"`
+	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 
 	// UserPrograms []UserProgram `gorm:"foreignKey:ProgramID" json:"user_programs,omitempty"`
 }

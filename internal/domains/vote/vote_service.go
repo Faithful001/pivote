@@ -8,6 +8,7 @@ import (
 	"pivote/internal/domains/vote/dtos"
 	"pivote/internal/infra/db"
 	"pivote/internal/infra/websocket"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -59,6 +60,10 @@ func (v *VoteService) ToggleVoteCandidate(
 	db.DB.Model(&program.UserProgram{}).Where("user_id = ? AND program_id = ?", userID, c.ProgramID).Count(&joinedCount)
 	if joinedCount == 0 {
 		return nil, errors.New("You must join this program before you can vote")
+	}
+
+	if time.Now().After(prog.VotingEndsAt) {
+    	return nil, errors.New("voting has ended")
 	}
 
 	var vote Vote

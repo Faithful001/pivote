@@ -46,9 +46,15 @@ type ProgramResponse struct {
 
 // Create Program - admins only
 func (program *ProgramService) CreateProgram(payload dtos.CreateProgramDto) (*Program, error) {
+	votingEndsAt, err := time.Parse(time.RFC3339, payload.VotingEndsAt)
+	if err != nil {
+		return nil, errors.New("invalid voting_ends_at format, expected ISO 8601")
+	}
+
 	newProgram := Program{
 		Name:        payload.Name,
 		Description: payload.Description,
+		VotingEndsAt: votingEndsAt,
 	}
 
 	result := db.DB.Create(&newProgram)
