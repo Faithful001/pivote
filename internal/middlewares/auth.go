@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Context key to avoid collisions
 type contextKey string
 
 const AuthUserKey contextKey = "auth_user"
