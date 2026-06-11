@@ -54,7 +54,7 @@ func (program *ProgramService) CreateProgram(payload dtos.CreateProgramDto) (*Pr
 	newProgram := Program{
 		Name:        payload.Name,
 		Description: payload.Description,
-		VotingEndsAt: votingEndsAt,
+		VotingEndsAt: &votingEndsAt,
 	}
 
 	result := db.DB.Create(&newProgram)
@@ -379,16 +379,33 @@ func (p *ProgramService) publishEmail(msg map[string]string) error {
 	return nil
 }
 
-func (program *ProgramService) ToggleProgram(programID uuid.UUID, isActive bool) (*Program, error) {
+func (program *ProgramService) ToggleProgram(programID uuid.UUID, isActive bool, votingEndsAt string) (*Program, error) {
 	var foundProgram Program
 	if err := db.DB.Where("id = ?", programID).First(&foundProgram).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("Program not found")
+			return nil, errors.New("program not found")
 		}
 		return nil, err
 	}
 
 	foundProgram.IsActive = isActive
+
+	if isActive {
+		if votingEndsAt == "" {
+			return nil, errors.New("voting_ends_at is required when activating a program")
+		}
+		parsedVotingEndsAt, err := time.Parse(time.RFC3339, votingEndsAt)
+		if err != nil {
+			return nil, errors.New("invalid voting_ends_at format, expected ISO 8601")
+		}
+		if parsedVotingEndsAt.Before(time.Now()) {
+			return nil, errors.New("voting_ends_at must be in the future")
+		}
+		foundProgram.VotingEndsAt = &parsedVotingEndsAt
+	} else {
+		foundProgram.VotingEndsAt = nil
+	}
+
 	if err := db.DB.Save(&foundProgram).Error; err != nil {
 		return nil, err
 	}

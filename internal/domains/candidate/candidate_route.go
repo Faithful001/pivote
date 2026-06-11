@@ -12,7 +12,7 @@ func RegisterRoutes(router *gin.RouterGroup) {
 	controller := NewCandidateController()
 
 	// Public read routes (any authenticated user can browse candidates)
-	protected := router.Group("/")
+	protected := router.Group("")
 	protected.Use(middlewares.Standard(user.RoleAdmin, user.RoleUser))
 
 	protected.GET("", controller.GetCandidates)                           // GET  /candidates
@@ -20,7 +20,7 @@ func RegisterRoutes(router *gin.RouterGroup) {
 	protected.GET("/program/:program_id", controller.GetCandidatesByProgramID) // GET  /candidates/program/:program_id
 
 	// Admin-only write routes
-	admin := router.Group("/")
+	admin := router.Group("")
 	admin.Use(middlewares.Standard(user.RoleAdmin))
 
 	admin.POST("", controller.CreateCandidate)       // POST   /candidates

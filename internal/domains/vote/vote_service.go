@@ -62,7 +62,7 @@ func (v *VoteService) ToggleVoteCandidate(
 		return nil, errors.New("You must join this program before you can vote")
 	}
 
-	if time.Now().After(prog.VotingEndsAt) {
+	if time.Now().After(*prog.VotingEndsAt) {
     	return nil, errors.New("voting has ended")
 	}
 

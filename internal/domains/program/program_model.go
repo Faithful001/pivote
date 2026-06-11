@@ -12,7 +12,7 @@ type Program struct {
 	Name         string    `gorm:"type:varchar(255);not null" json:"name"`
 	Description  string    `gorm:"type:text" json:"description"`
 	IsActive     bool      `gorm:"type:boolean;not null;default:false" json:"is_active"`
-	VotingEndsAt time.Time `gorm:"type:timestamp;not null" json:"voting_ends_at"`
+	VotingEndsAt *time.Time `gorm:"type:timestamp;nullable" json:"voting_ends_at"`
 	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 

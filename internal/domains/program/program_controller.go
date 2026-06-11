@@ -282,7 +282,8 @@ func (ctrl *ProgramController) ToggleProgram(c *gin.Context) {
 	}
 
 	var payload struct {
-		IsActive bool `json:"is_active"`
+		IsActive 		bool `json:"is_active"`
+		VotingEndsAt 	string `json:"voting_ends_at"`
 	}
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
@@ -295,7 +296,7 @@ func (ctrl *ProgramController) ToggleProgram(c *gin.Context) {
 		return
 	}
 
-	result, err := ctrl.service.ToggleProgram(programID, payload.IsActive)
+	result, err := ctrl.service.ToggleProgram(programID, payload.IsActive, payload.VotingEndsAt)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": http.StatusBadRequest,
