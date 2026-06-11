@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"pivote/internal/domains/otp/dto"
@@ -191,15 +192,17 @@ func (p *ProgramService) JoinProgram(programID uuid.UUID, tokenStr string) error
 		}
 
 		var foundProgram Program
-		if err := tx.Where("id = ?", programID).First(&foundProgram).Error; err != nil {
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").
+			Where("id = ?", programID).
+			First(&foundProgram).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return errors.New("program not found")
 			}
 			return err
 		}
-		if !foundProgram.IsActive {
-			return errors.New("program is closed")
-		}
+		// if !foundProgram.IsActive {
+		// 	return errors.New("program is closed")
+		// }
 
 		var pac ProgramAccessToken
 		if err := tx.Set("gorm:query_option", "FOR UPDATE").
@@ -247,9 +250,9 @@ func (p *ProgramService) RequestJoinLink(userEmail string, programID uuid.UUID) 
 		}
 		return err
 	}
-	if !foundProgram.IsActive {
-		return errors.New("program is closed")
-	}
+	// if !foundProgram.IsActive {
+	// 	return errors.New("program is closed")
+	// }
 
 	// 1. Check if user exists
 	var foundUser user.User
@@ -381,34 +384,80 @@ func (p *ProgramService) publishEmail(msg map[string]string) error {
 
 func (program *ProgramService) ToggleProgram(programID uuid.UUID, isActive bool, votingEndsAt string) (*Program, error) {
 	var foundProgram Program
-	if err := db.DB.Where("id = ?", programID).First(&foundProgram).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("program not found")
+	err := db.DB.Transaction(func (tx *gorm.DB) error {
+		
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").
+			Where("id = ?", programID).
+			First(&foundProgram).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("program not found")
+			}
+			return err
 		}
+		
+		foundProgram.IsActive = isActive
+
+		if isActive {
+			if votingEndsAt == "" {
+				return errors.New("voting_ends_at is required when activating a program")
+			}
+			parsedVotingEndsAt, err := time.Parse(time.RFC3339, votingEndsAt)
+			if err != nil {
+				return errors.New("invalid voting_ends_at format, expected ISO 8601")
+			}
+			if parsedVotingEndsAt.Before(time.Now()) {
+				return errors.New("voting_ends_at must be in the future")
+			}
+			foundProgram.VotingEndsAt = &parsedVotingEndsAt
+		} else {
+			foundProgram.VotingEndsAt = nil
+		}
+			
+		if err := tx.Model(&foundProgram).Updates(map[string]interface{}{
+			"is_active": foundProgram.IsActive,
+			"voting_ends_at": foundProgram.VotingEndsAt,
+		}).Error; err != nil {
+			return err
+		}
+		
+		return nil
+	})
+
+	if err != nil {
 		return nil, err
 	}
 
-	foundProgram.IsActive = isActive
-
-	if isActive {
-		if votingEndsAt == "" {
-			return nil, errors.New("voting_ends_at is required when activating a program")
-		}
-		parsedVotingEndsAt, err := time.Parse(time.RFC3339, votingEndsAt)
-		if err != nil {
-			return nil, errors.New("invalid voting_ends_at format, expected ISO 8601")
-		}
-		if parsedVotingEndsAt.Before(time.Now()) {
-			return nil, errors.New("voting_ends_at must be in the future")
-		}
-		foundProgram.VotingEndsAt = &parsedVotingEndsAt
-	} else {
-		foundProgram.VotingEndsAt = nil
-	}
-
-	if err := db.DB.Save(&foundProgram).Error; err != nil {
-		return nil, err
+	// Publish state change event to RabbitMQ fanout exchange
+	if publishErr := program.publishProgramStatusEvent(foundProgram.ID, foundProgram.IsActive, foundProgram.VotingEndsAt); publishErr != nil {
+		log.Printf("[ProgramService] Failed to publish program status event: %v", publishErr)
 	}
 
 	return &foundProgram, nil
+}
+
+func (p *ProgramService) publishProgramStatusEvent(programID uuid.UUID, isActive bool, votingEndsAt *time.Time) error {
+	event := map[string]interface{}{
+		"program_id":     programID.String(),
+		"is_active":      isActive,
+		"voting_ends_at": nil,
+	}
+	if votingEndsAt != nil {
+		event["voting_ends_at"] = votingEndsAt.Format(time.RFC3339)
+	}
+
+	body, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("failed to marshal program status event: %w", err)
+	}
+
+	return p.mq.Publish(context.Background(), rabbitmq.PublishConfig{
+		Exchange:   "program.events",
+		RoutingKey: "",
+		Mandatory:  false,
+		Immediate:  false,
+		Message: amqp.Publishing{
+			ContentType: "application/json",
+			Body:        body,
+		},
+	})
 }

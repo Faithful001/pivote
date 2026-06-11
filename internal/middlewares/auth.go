@@ -127,7 +127,7 @@ func Standard(requiredRoles ...user.Role) gin.HandlerFunc {
 	return Auth(AuthConfig{
 		SecretKey:     os.Getenv("JWT_SECRET"),
 		RequiredRoles: requiredRoles,
-		TokenLookup:   "header:Authorization:Bearer,cookie:access_token",
+		TokenLookup:   "header:Authorization:Bearer,cookie:access_token,query:token",
 	})
 }
 

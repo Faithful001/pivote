@@ -8,13 +8,14 @@ import (
 	"pivote/internal/domains/user"
 	"pivote/internal/domains/vote"
 	"pivote/internal/infra/rabbitmq"
+	"pivote/internal/infra/sse"
 	"pivote/internal/infra/websocket"
 	"pivote/internal/middlewares"
 
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRouter(mq *rabbitmq.RabbitMQ, socketio *websocket.SocketIOServer) *gin.Engine {
+func SetupRouter(mq *rabbitmq.RabbitMQ, socketio *websocket.SocketIOServer, sseBroadcaster *sse.BroadcasterManager) *gin.Engine {
 	router := gin.Default()
 
 	router.Use(middlewares.CORS())
@@ -43,7 +44,7 @@ func SetupRouter(mq *rabbitmq.RabbitMQ, socketio *websocket.SocketIOServer) *gin
 
 	{
 		programRoutes := v1.Group("/programs")
-		program.RegisterRoutes(programRoutes, mq)
+		program.RegisterRoutes(programRoutes, mq, sseBroadcaster)
 	}
 
 	{

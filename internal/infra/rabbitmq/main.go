@@ -145,6 +145,52 @@ func (r *RabbitMQ) DeclareQueue(cfg QueueConfig) (amqp.Queue, error) {
 	return q, nil
 }
 
+func (r *RabbitMQ) DeclareExchange(name, kind string, durable, autoDelete, internal, noWait bool, args amqp.Table) error {
+	r.mu.RLock()
+	ch := r.channel
+	r.mu.RUnlock()
+
+	if ch == nil {
+		return errors.New("rabbitmq not connected")
+	}
+
+	err := ch.ExchangeDeclare(
+		name,
+		kind,
+		durable,
+		autoDelete,
+		internal,
+		noWait,
+		args,
+	)
+	if err != nil {
+		return fmt.Errorf("exchange declare failed: %w", err)
+	}
+	return nil
+}
+
+func (r *RabbitMQ) BindQueue(queueName, routingKey, exchangeName string, noWait bool, args amqp.Table) error {
+	r.mu.RLock()
+	ch := r.channel
+	r.mu.RUnlock()
+
+	if ch == nil {
+		return errors.New("rabbitmq not connected")
+	}
+
+	err := ch.QueueBind(
+		queueName,
+		routingKey,
+		exchangeName,
+		noWait,
+		args,
+	)
+	if err != nil {
+		return fmt.Errorf("queue bind failed: %w", err)
+	}
+	return nil
+}
+
 func (r *RabbitMQ) Publish(ctx context.Context, cfg PublishConfig) error {
 	r.mu.RLock()
 	ch := r.channel

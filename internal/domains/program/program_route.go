@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"pivote/internal/domains/user"
 	"pivote/internal/infra/rabbitmq"
+	"pivote/internal/infra/sse"
 	"pivote/internal/middlewares"
 
 	"github.com/gin-gonic/gin"
 )
 
 // RegisterRoutes registers all program-related routes
-func RegisterRoutes(router *gin.RouterGroup, mq *rabbitmq.RabbitMQ) {
-	controller, err := NewProgramController(mq)
+func RegisterRoutes(router *gin.RouterGroup, mq *rabbitmq.RabbitMQ, sseBroadcaster *sse.BroadcasterManager) {
+	controller, err := NewProgramController(mq, sseBroadcaster)
 	if err != nil {
 		panic(fmt.Sprintf("failed to initialize program controller: %v", err))
 	}
@@ -25,6 +26,7 @@ func RegisterRoutes(router *gin.RouterGroup, mq *rabbitmq.RabbitMQ) {
 
 	protected.GET("", controller.GetPrograms) 
 	protected.GET("/:id", controller.GetProgramById)       
+	protected.GET("/:id/countdown", controller.StreamCountdown)
 
 	// Admin-only write routes
 	admin := router.Group("")
