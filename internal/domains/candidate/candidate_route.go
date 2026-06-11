@@ -15,15 +15,15 @@ func RegisterRoutes(router *gin.RouterGroup) {
 	protected := router.Group("")
 	protected.Use(middlewares.Standard(user.RoleAdmin, user.RoleUser))
 
-	protected.GET("", controller.GetCandidates)                           // GET  /candidates
-	protected.GET("/:id", controller.GetCandidateById)                   // GET  /candidates/:id
-	protected.GET("/program/:program_id", controller.GetCandidatesByProgramID) // GET  /candidates/program/:program_id
+	protected.GET("", controller.GetCandidates)
+	protected.GET("/:id", controller.GetCandidateById)
+	protected.GET("/program/:program_id", controller.GetCandidatesByProgramID)
 
 	// Admin-only write routes
 	admin := router.Group("")
 	admin.Use(middlewares.Standard(user.RoleAdmin))
 
-	admin.POST("", controller.CreateCandidate)       // POST   /candidates
-	admin.PUT("/:id", controller.UpdateCandidate)    // PUT    /candidates/:id
-	admin.DELETE("/:id", controller.DeleteCandidate) // DELETE /candidates/:id
+	admin.POST("", controller.CreateCandidate)
+	admin.PUT("/:id", controller.UpdateCandidate)
+	admin.DELETE("/:id", controller.DeleteCandidate)
 }
