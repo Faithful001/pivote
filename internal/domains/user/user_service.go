@@ -3,12 +3,20 @@ package user
 import (
 	"errors"
 	"pivote/internal/domains/user/dto"
-	"pivote/internal/domains/workspace"
 	"pivote/internal/infra/db"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+type WorkspaceInfo struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	OwnerID   uuid.UUID `json:"owner_id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
 
 type UserService struct{}
 
@@ -38,12 +46,12 @@ func (s *UserService) CreateUser(user *User) (*User, error) {
 func (s *UserService) GetMe(workspaceID *uuid.UUID, user User) (map[string]any, error) {
 	var result *gorm.DB
 
-	var foundWorkspace workspace.Workspace
+	var foundWorkspace WorkspaceInfo
 	
 	if workspaceID == nil {
-		result = db.DB.First(&foundWorkspace)
+		result = db.DB.Table("workspaces").First(&foundWorkspace)
 	} else {	
-		result = db.DB.Where("id = ?", foundWorkspace).First(&foundWorkspace)
+		result = db.DB.Table("workspaces").Where("id = ?", *workspaceID).First(&foundWorkspace)
 	}
 
 	if result.Error != nil {
@@ -55,7 +63,7 @@ func (s *UserService) GetMe(workspaceID *uuid.UUID, user User) (map[string]any, 
 
 	return map[string]any{
 		"workspace": foundWorkspace,
-		"user": user,
+		"user":      user,
 	}, nil
 }
 
