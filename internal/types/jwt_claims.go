@@ -22,4 +22,5 @@ type CustomClaims struct {
 	Permissions []string   `json:"permissions,omitempty"`
 	Purpose     JwtPurpose `json:"purpose"`
 	ProgramID   *uuid.UUID `json:"program_id,omitempty"`
+	WorkspaceID *uuid.UUID `json:"workspace_id,omitempty"`
 }

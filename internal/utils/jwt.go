@@ -14,6 +14,7 @@ type TokenOptions struct {
 	Role      string
 	Purpose   types.JwtPurpose
 	ProgramID *uuid.UUID
+	WorkspaceID *uuid.UUID
 	ExpiresAt *time.Time // nil defaults to 24h
 }
 
@@ -43,6 +44,7 @@ func (j *JWTUtil) GenerateToken(opts TokenOptions) (string, error) {
 		Role:      opts.Role,
 		Purpose:   opts.Purpose,
 		ProgramID: opts.ProgramID,
+		WorkspaceID: opts.WorkspaceID,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

@@ -3,7 +3,7 @@ package program
 import (
 	"fmt"
 	"net/http"
-	dtos "pivote/internal/domains/program/dto"
+	dto "pivote/internal/domains/program/dto"
 	"pivote/internal/infra/rabbitmq"
 	"pivote/internal/infra/sse"
 	"pivote/internal/middlewares"
@@ -33,7 +33,7 @@ func NewProgramController(mq *rabbitmq.RabbitMQ, sseBroadcaster *sse.Broadcaster
 }
 
 func (ctrl *ProgramController) CreateProgram(c *gin.Context) {
-	var payload dtos.CreateProgramDto
+	var payload dto.CreateProgramDto
 
 	if err := c.ShouldBindBodyWithJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -66,6 +66,22 @@ func (ctrl *ProgramController) CreateProgram(c *gin.Context) {
 }
 
 func (ctrl *ProgramController) GetPrograms(c *gin.Context) {
+	//workspace_id
+	workspaceId := c.Query("workspace_id")
+
+	//parse the workspaceId to a uuid
+	workspaceID, err := uuid.Parse(workspaceId)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"statusCode": http.StatusBadRequest,
+			"success":    false,
+			"message":    "Invalid workspace id",
+			"data":       nil,
+		})
+		return
+	}
+
 	// Get user from context to check program enrollment
 	user, err := middlewares.GetUser(c)
 	if err != nil {
@@ -79,7 +95,7 @@ func (ctrl *ProgramController) GetPrograms(c *gin.Context) {
 	}
 	userID := user.ID
 
-	result, err := ctrl.service.GetPrograms(userID, user.Role)
+	result, err := ctrl.service.GetPrograms(userID, workspaceID, user.Role)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -112,6 +128,22 @@ func (ctrl *ProgramController) GetProgramById(c *gin.Context) {
 		})
 		return
 	}
+
+	// //workspace_id
+	// workspaceId := c.Query("workspace_id")
+
+	// //parse the workspaceId to a uuid
+	// workspaceID, err := uuid.Parse(workspaceId)
+
+	// if err != nil {
+	// 	c.JSON(http.StatusBadRequest, gin.H{
+	// 		"statusCode": http.StatusBadRequest,
+	// 		"success":    false,
+	// 		"message":    "Invalid workspace id",
+	// 		"data":       nil,
+	// 	})
+	// 	return
+	// }
 
 	user, err := middlewares.GetUser(c)
 	if err != nil {
@@ -159,7 +191,7 @@ func (ctrl *ProgramController) UpdateProgram(c *gin.Context) {
 		return
 	}
 
-	var payload dtos.UpdateProgramDto
+	var payload dto.UpdateProgramDto
 
 	if err := c.ShouldBindBodyWithJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -240,6 +272,7 @@ func (ctrl *ProgramController) JoinProgram(c *gin.Context) {
 
 	var payload struct {
 		// Email string `json:"email" binding:"required"`
+		WorkspaceID	string	`json:"workspace_id" binding:"required"`
 		Token string `json:"token" binding:"required"`
 	}
 
@@ -247,13 +280,26 @@ func (ctrl *ProgramController) JoinProgram(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": http.StatusBadRequest,
 			"success":    false,
-			"message":    "Email and token are required",
+			"message":    "Workspace id and token are required",
 			"data":       nil,
 		})
 		return
 	}
 
-	err = ctrl.service.JoinProgram(programID, payload.Token)
+	workspaceID, err := uuid.Parse(payload.WorkspaceID)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"statusCode": http.StatusBadRequest,
+			"success":    false,
+			"message":    "Invalid id",
+			"data":       nil,
+		})
+		return
+	}
+
+	err = ctrl.service.JoinProgram(programID, workspaceID, payload.Token)
+
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": http.StatusBadRequest,
@@ -337,6 +383,7 @@ func (ctrl *ProgramController) RequestJoinLink(c *gin.Context) {
 
 	var payload struct {
 		Email string `json:"email" binding:"required"`
+		WorkspaceID	string	`json:"workspace_id" binding:"required"`
 	}
 
 	if err := c.ShouldBindBodyWithJSON(&payload); err != nil {
@@ -349,7 +396,19 @@ func (ctrl *ProgramController) RequestJoinLink(c *gin.Context) {
 		return
 	}
 
-	err = ctrl.service.RequestJoinLink(payload.Email, programID)
+	workspaceID, err := uuid.Parse(payload.WorkspaceID)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"statusCode": http.StatusBadRequest,
+			"success":    false,
+			"message":    "Invalid id",
+			"data":       nil,
+		})
+		return
+	}
+
+	err = ctrl.service.RequestJoinLink(payload.Email, programID, workspaceID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": http.StatusBadRequest,

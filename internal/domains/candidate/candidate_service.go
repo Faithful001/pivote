@@ -3,7 +3,7 @@ package candidate
 import (
 	"errors"
 	"fmt"
-	dtos "pivote/internal/domains/candidate/dto"
+	dto "pivote/internal/domains/candidate/dto"
 	"pivote/internal/domains/program"
 	"pivote/internal/infra/db"
 
@@ -17,7 +17,7 @@ func NewCandidateService() *CandidateService {
 	return &CandidateService{}
 }
 
-func (candidate *CandidateService) CreateCandidate(payload dtos.CreateCandidateDto) (*Candidate, error) {
+func (candidate *CandidateService) CreateCandidate(payload dto.CreateCandidateDto) (*Candidate, error) {
 	// Parse program ID
 	programID, err := uuid.Parse(payload.ProgramID)
 	if err != nil {
@@ -73,7 +73,7 @@ func (candidate *CandidateService) GetCandidateById(id uuid.UUID) (*Candidate, e
 	return &foundCandidate, nil
 }
 
-func (candidate *CandidateService) UpdateCandidate(id uuid.UUID, payload dtos.UpdateCandidateDto) (*Candidate, error) {
+func (candidate *CandidateService) UpdateCandidate(id uuid.UUID, payload dto.UpdateCandidateDto) (*Candidate, error) {
 	var existingCandidate Candidate
 
 	result := db.DB.Where("id = ?", id).First(&existingCandidate)

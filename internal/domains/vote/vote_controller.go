@@ -2,7 +2,7 @@ package vote
 
 import (
 	"net/http"
-	"pivote/internal/domains/vote/dtos"
+	"pivote/internal/domains/vote/dto"
 	"pivote/internal/infra/websocket"
 	"pivote/internal/middlewares"
 
@@ -21,7 +21,7 @@ func NewVoteController(socketio *websocket.SocketIOServer) VoteController {
 }
 
 func (ctrl *VoteController) ToggleVote(c *gin.Context) {
-	var payload dtos.ToggleVoteDto
+	var payload dto.ToggleVoteDto
 
 	// Get user from context
 	user, err := middlewares.GetUser(c)

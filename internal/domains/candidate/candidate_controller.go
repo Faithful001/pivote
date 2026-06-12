@@ -2,7 +2,7 @@ package candidate
 
 import (
 	"net/http"
-	dtos "pivote/internal/domains/candidate/dto"
+	dto "pivote/internal/domains/candidate/dto"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -19,7 +19,7 @@ func NewCandidateController() CandidateController {
 }
 
 func (ctrl *CandidateController) CreateCandidate(c *gin.Context) {
-	var payload dtos.CreateCandidateDto
+	var payload dto.CreateCandidateDto
 
 	if err := c.ShouldBindBodyWithJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -164,7 +164,7 @@ func (ctrl *CandidateController) UpdateCandidate(c *gin.Context) {
 		return
 	}
 
-	var payload dtos.UpdateCandidateDto
+	var payload dto.UpdateCandidateDto
 
 	if err := c.ShouldBindBodyWithJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{

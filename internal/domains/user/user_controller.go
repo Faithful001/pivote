@@ -19,9 +19,23 @@ func NewUserController() *UserController {
 }
 
 // GetMe returns the currently authenticated user's profile.
-// NOTE: Do NOT import middlewares here — middlewares imports user, creating a cycle.
+// NOTE: Do NOT import middlewares here. middlewares imports user, creating a cycle.
 // Instead we read the context key directly (same logic as middlewares.GetUser).
 func (ctrl *UserController) GetMe(c *gin.Context) {
+	workspaceId := c.Query("workspace_id")
+
+	workspaceID, err := uuid.Parse(workspaceId)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"statusCode": http.StatusBadRequest,
+			"success":    false,
+			"message":    "Invalid workspace id",
+			"data":       nil,
+		})
+		return
+	}
+
 	val, exists := c.Get("auth_user")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -32,6 +46,7 @@ func (ctrl *UserController) GetMe(c *gin.Context) {
 		})
 		return
 	}
+
 	u, ok := val.(User)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -43,11 +58,22 @@ func (ctrl *UserController) GetMe(c *gin.Context) {
 		return
 	}
 
+	result, err := ctrl.service.GetMe(&workspaceID, u)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+		"statusCode": http.StatusInternalServerError,
+		"success":    false,
+		"message":    err.Error(),
+		"data":       u,
+	})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"statusCode": http.StatusOK,
 		"success":    true,
 		"message":    "Profile fetched successfully",
-		"data":       u,
+		"data":       result,
 	})
 }
 

@@ -3,6 +3,7 @@ package user
 import (
 	"errors"
 	"pivote/internal/domains/user/dto"
+	"pivote/internal/domains/workspace"
 	"pivote/internal/infra/db"
 
 	"github.com/google/uuid"
@@ -32,6 +33,30 @@ func (s *UserService) CreateUser(user *User) (*User, error) {
 	}
 	
 	return user, nil
+}
+
+func (s *UserService) GetMe(workspaceID *uuid.UUID, user User) (map[string]any, error) {
+	var result *gorm.DB
+
+	var foundWorkspace workspace.Workspace
+	
+	if workspaceID == nil {
+		result = db.DB.First(&foundWorkspace)
+	} else {	
+		result = db.DB.Where("id = ?", foundWorkspace).First(&foundWorkspace)
+	}
+
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, errors.New("workspace not found")
+		}
+		return nil, result.Error
+	}
+
+	return map[string]any{
+		"workspace": foundWorkspace,
+		"user": user,
+	}, nil
 }
 
 func (s *UserService) GetUserByID(id uuid.UUID) (*User, error) {

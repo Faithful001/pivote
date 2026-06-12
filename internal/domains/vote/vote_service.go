@@ -5,7 +5,7 @@ import (
 	"log"
 	"pivote/internal/domains/candidate"
 	"pivote/internal/domains/program"
-	"pivote/internal/domains/vote/dtos"
+	dto "pivote/internal/domains/vote/dto"
 	"pivote/internal/infra/db"
 	"pivote/internal/infra/websocket"
 	"time"
@@ -108,7 +108,7 @@ func (v *VoteService) ToggleVoteCandidate(
 	return &vote, nil
 }
 
-func (v *VoteService) GetLeaderboard(programID uuid.UUID) ([]dtos.LeaderboardEntry, error) {
+func (v *VoteService) GetLeaderboard(programID uuid.UUID) ([]dto.LeaderboardEntry, error) {
 	type row struct {
 		CandidateID uuid.UUID `gorm:"column:candidate_id"`
 		Name        string    `gorm:"column:name"`
@@ -130,9 +130,9 @@ func (v *VoteService) GetLeaderboard(programID uuid.UUID) ([]dtos.LeaderboardEnt
 		return nil, err
 	}
 
-	entries := make([]dtos.LeaderboardEntry, len(rows))
+	entries := make([]dto.LeaderboardEntry, len(rows))
 	for i, r := range rows {
-		entries[i] = dtos.LeaderboardEntry{
+		entries[i] = dto.LeaderboardEntry{
 			Rank:        i + 1,
 			CandidateID: r.CandidateID,
 			Name:        r.Name,
@@ -154,7 +154,7 @@ func (v *VoteService) broadcastLeaderboard(programID uuid.UUID) {
 		return
 	}
 
-	msg := dtos.LeaderboardUpdate{
+	msg := dto.LeaderboardUpdate{
 		Type:      "leaderboard:update",
 		ProgramID: programID,
 		Data:      entries,

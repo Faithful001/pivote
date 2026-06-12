@@ -9,8 +9,9 @@ import (
 	"net/url"
 	"os"
 	"pivote/internal/domains/otp/dto"
-	dtos "pivote/internal/domains/program/dto"
+	programDto "pivote/internal/domains/program/dto"
 	"pivote/internal/domains/user"
+	"pivote/internal/domains/workspace"
 	"pivote/internal/infra/db"
 	"pivote/internal/infra/rabbitmq"
 	"pivote/internal/types"
@@ -46,7 +47,15 @@ type ProgramResponse struct {
 }
 
 // Create Program - admins only
-func (program *ProgramService) CreateProgram(payload dtos.CreateProgramDto) (*Program, error) {
+func (program *ProgramService) CreateProgram(payload programDto.CreateProgramDto) (*Program, error) {
+	
+	//parse the workspaceId to a uuid
+	workspaceID, err := uuid.Parse(payload.WorkspaceID)
+
+	if err != nil {
+		return nil, errors.New("Invalid workspace_id provided")
+	}
+
 	votingEndsAt, err := time.Parse(time.RFC3339, payload.VotingEndsAt)
 	if err != nil {
 		return nil, errors.New("invalid voting_ends_at format, expected ISO 8601")
@@ -55,6 +64,7 @@ func (program *ProgramService) CreateProgram(payload dtos.CreateProgramDto) (*Pr
 	newProgram := Program{
 		Name:        payload.Name,
 		Description: payload.Description,
+		WorkspaceID: workspaceID,
 		VotingEndsAt: &votingEndsAt,
 	}
 
@@ -66,7 +76,7 @@ func (program *ProgramService) CreateProgram(payload dtos.CreateProgramDto) (*Pr
 	return &newProgram, nil
 }
 
-func (program *ProgramService) GetPrograms(userID uuid.UUID, role user.Role) ([]ProgramResponse, error) {
+func (program *ProgramService) GetPrograms(userID uuid.UUID, workspaceID uuid.UUID, role user.Role) ([]ProgramResponse, error) {
 	var response []ProgramResponse
 
 	var err error
@@ -74,12 +84,14 @@ func (program *ProgramService) GetPrograms(userID uuid.UUID, role user.Role) ([]
 	switch role {
 	case user.RoleUser:
 		err = db.DB.Model(&Program{}).
-		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined").
+		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined", workspaceID).
+		Where("programs.workspace_id = ?", workspaceID).
 		Joins("JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID).
 		Find(&response).Error
 	case user.RoleAdmin:
 		err = db.DB.Model(&Program{}).
-		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined").
+		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined", userID, workspaceID).
+		Where("programs.owner_id = ? AND programs.workspace_id = ?", userID, workspaceID).
 		Joins("LEFT JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID).
 		Find(&response).Error
 	}
@@ -116,7 +128,7 @@ func (p *ProgramService) GetProgramById(id uuid.UUID, userID uuid.UUID, role use
 	return &foundProgram, nil
 }
 
-func (program *ProgramService) UpdateProgram(id uuid.UUID, payload dtos.UpdateProgramDto) (*Program, error) {
+func (program *ProgramService) UpdateProgram(id uuid.UUID, payload programDto.UpdateProgramDto) (*Program, error) {
 	var existingProgram Program
 
 	result := db.DB.Where("id = ?", id).First(&existingProgram)
@@ -163,7 +175,7 @@ func (program *ProgramService) DeleteProgram(id uuid.UUID) (*Program, error) {
 	return &existingProgram, nil
 }
 
-func (p *ProgramService) JoinProgram(programID uuid.UUID, tokenStr string) error {
+func (p *ProgramService) JoinProgram(programID uuid.UUID, workspaceID uuid.UUID, tokenStr string) error {
 	claims, err := p.jwtUtil.ParseToken(tokenStr)
 	if err != nil {
 		return err
@@ -182,8 +194,9 @@ func (p *ProgramService) JoinProgram(programID uuid.UUID, tokenStr string) error
 		return errors.New("invalid or expired token")
 	}
 
-	var foundUser user.User
 	return db.DB.Transaction(func(tx *gorm.DB) error {
+		var foundUser user.User
+
 		if err := tx.Where("id = ?", userID).First(&foundUser).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return errors.New("invalid or expired token")
@@ -192,13 +205,23 @@ func (p *ProgramService) JoinProgram(programID uuid.UUID, tokenStr string) error
 		}
 
 		var foundProgram Program
-		if err := tx.Set("gorm:query_option", "FOR UPDATE").
+		if programErr := tx.Set("gorm:query_option", "FOR UPDATE").
 			Where("id = ?", programID).
 			First(&foundProgram).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return errors.New("program not found")
 			}
-			return err
+			return programErr
+		}
+
+		var foundWorkspace workspace.Workspace
+		if workspaceErr := tx.Set("gorm:query_option", "FOR UPDATE").
+			Where("id = ?", workspaceID).
+			First(&foundWorkspace).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("workspace not found")
+			}
+			return workspaceErr
 		}
 		// if !foundProgram.IsActive {
 		// 	return errors.New("program is closed")
@@ -233,6 +256,16 @@ func (p *ProgramService) JoinProgram(programID uuid.UUID, tokenStr string) error
 			return err
 		}
 
+
+
+		// add the user to the corresponding workspace
+		if err := tx.Create(&workspace.UserWorkspace {
+			UserID: foundUser.ID,
+			WorkspaceID: workspaceID,
+		}).Error; err != nil {
+			return err
+		} 
+
 		return tx.Create(&UserProgram{
 			UserID:    foundUser.ID,
 			ProgramID: programID,
@@ -240,8 +273,8 @@ func (p *ProgramService) JoinProgram(programID uuid.UUID, tokenStr string) error
 	})
 }
 
-func (p *ProgramService) RequestJoinLink(userEmail string, programID uuid.UUID) error {
-	// 2. Verify program exists and is active first
+func (p *ProgramService) RequestJoinLink(userEmail string, programID uuid.UUID, workspaceID uuid.UUID) error {
+	// 1. Verify program exists and is active first
 	// (no point doing anything if the program is invalid)
 	var foundProgram Program
 	if err := db.DB.Where("id = ?", programID).First(&foundProgram).Error; err != nil {
@@ -254,7 +287,17 @@ func (p *ProgramService) RequestJoinLink(userEmail string, programID uuid.UUID) 
 	// 	return errors.New("program is closed")
 	// }
 
-	// 1. Check if user exists
+	var foundWorkspace workspace.Workspace
+
+	if workspaceErr := db.DB.Where("id = ?", workspaceID).First(&foundWorkspace).Error; workspaceErr != nil {
+		if errors.Is(workspaceErr, gorm.ErrRecordNotFound){
+			return errors.New("Workspace not found")
+		}
+
+		return workspaceErr
+	}
+
+	// 2. Check if user exists
 	var foundUser user.User
 	userErr := db.DB.Where("email = ?", userEmail).First(&foundUser).Error
 
@@ -262,7 +305,7 @@ func (p *ProgramService) RequestJoinLink(userEmail string, programID uuid.UUID) 
 		return userErr // real DB error
 	}
 
-	// user does not exist — send registration nudge email and return
+	// user does not exist - send registration nudge email and return
 	if errors.Is(userErr, gorm.ErrRecordNotFound) {
 		return p.sendRegistrationNudge(userEmail, programID, foundProgram.Name)
 	}
@@ -285,6 +328,7 @@ func (p *ProgramService) RequestJoinLink(userEmail string, programID uuid.UUID) 
 		Role:      string(user.RoleUser),
 		Purpose:   types.JwtPurposeProgramJoin,
 		ProgramID: &programID,
+		WorkspaceID: &workspaceID,
 		ExpiresAt: &expiresAt,
 	})
 	if err != nil {
@@ -320,11 +364,12 @@ func (p *ProgramService) RequestJoinLink(userEmail string, programID uuid.UUID) 
 	if os.Getenv("ENV") == "production" {
 		baseURL = "https://pivote.ng"
 	}
-	joinLink := fmt.Sprintf("%s/programs/%s/join?token=%s&email=%s&name=%s",
+	joinLink := fmt.Sprintf("%s/programs/%s/join?token=%s&email=%s&workspace_name=%sprogram_name=%s",
 		baseURL,
 		programID.String(),
 		token,
 		url.QueryEscape(userEmail),
+		url.QueryEscape(foundWorkspace.Name),
 		url.QueryEscape(foundProgram.Name),
 	)
 
