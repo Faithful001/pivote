@@ -365,11 +365,12 @@ func (p *ProgramService) RequestJoinLink(userEmail string, programID uuid.UUID, 
 	if os.Getenv("ENV") == "production" {
 		baseURL = "https://pivote.ng"
 	}
-	joinLink := fmt.Sprintf("%s/programs/%s/join?token=%s&email=%s&workspace_name=%sprogram_name=%s",
+	joinLink := fmt.Sprintf("%s/programs/%s/join?token=%s&email=%s&workspace_id=%s&workspace_name=%s&program_name=%s",
 		baseURL,
 		programID.String(),
 		token,
 		url.QueryEscape(userEmail),
+		workspaceID.String(),
 		url.QueryEscape(foundWorkspace.Name),
 		url.QueryEscape(foundProgram.Name),
 	)
