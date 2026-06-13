@@ -86,8 +86,9 @@ func (program *ProgramService) GetPrograms(userID uuid.UUID, workspaceID uuid.UU
 	case user.RoleUser:
 		err = db.DB.Model(&Program{}).
 		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined").
-		Where("programs.workspace_id = ?", workspaceID).
+		// Where("programs.workspace_id = ?", workspaceID).
 		Joins("JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID).
+		Joins("Workspace").
 		Find(&response).Error
 	case user.RoleAdmin:
 		err = db.DB.Model(&Program{}).
@@ -114,7 +115,7 @@ func (p *ProgramService) GetProgramById(id uuid.UUID, userID uuid.UUID, role use
 
 	switch role {
 	case user.RoleUser:
-		query = query.Joins("JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID)
+		query = query.Joins("JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID).Joins("Workspace")
 	case user.RoleAdmin:
 		query = query.Joins("LEFT JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID)
 	}

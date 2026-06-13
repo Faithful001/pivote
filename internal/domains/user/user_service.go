@@ -44,15 +44,16 @@ func (s *UserService) CreateUser(user *User) (*User, error) {
 }
 
 func (s *UserService) GetMe(workspaceID *uuid.UUID, user User) (map[string]any, error) {
-	var result *gorm.DB
+	if workspaceID == nil {
+		// No workspace requested - return user only
+		return map[string]any{
+			"workspace": nil,
+			"user":      user,
+		}, nil
+	}
 
 	var foundWorkspace WorkspaceInfo
-	
-	if workspaceID == nil {
-		result = db.DB.Table("workspaces").First(&foundWorkspace)
-	} else {	
-		result = db.DB.Table("workspaces").Where("id = ?", *workspaceID).First(&foundWorkspace)
-	}
+	result := db.DB.Table("workspaces").Where("id = ?", *workspaceID).First(&foundWorkspace)
 
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
