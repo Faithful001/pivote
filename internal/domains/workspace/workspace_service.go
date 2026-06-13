@@ -30,6 +30,7 @@ func (ws *WorkspaceService) CreateWorkspace(userID uuid.UUID, payload dto.Create
 
 	newUserWorkspace := UserWorkspace {
 		UserID: userID,
+		WorkspaceID: newWorkspace.ID,
 	}
 
 	if err := db.DB.Create(&newUserWorkspace).Error; err != nil {
@@ -55,7 +56,7 @@ func (ws *WorkspaceService) GetWorkspaces(userID uuid.UUID) (*[]Workspace, error
 func (ws *WorkspaceService) GetWorkspace(userID uuid.UUID, workspaceID uuid.UUID) (*Workspace, error) {
 	var workspace Workspace
 
-	err := db.DB.Where("id = ? AND owner_id = ?", workspaceID, userID).Find(&workspace).Error
+	err := db.DB.Where("id = ? AND owner_id = ?", workspaceID, userID).First(&workspace).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errors.New("Workspace does not exist")
@@ -72,7 +73,7 @@ func (ws *WorkspaceService) GetWorkspace(userID uuid.UUID, workspaceID uuid.UUID
 func (ws *WorkspaceService) UpdateWorkspace(userID uuid.UUID, workspaceID uuid.UUID, payload dto.UpdateWorkspaceDto) error {
 	var workspace Workspace
 
-	err := db.DB.Where("id = ? AND owner_id = ?", workspaceID, userID).Find(&workspace).Error
+	err := db.DB.Where("id = ? AND owner_id = ?", workspaceID, userID).First(&workspace).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return errors.New("Workspace does not exist")

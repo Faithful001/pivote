@@ -9,6 +9,7 @@ import (
 	"pivote/internal/domains/program"
 	"pivote/internal/domains/user"
 	"pivote/internal/domains/vote"
+	"pivote/internal/domains/workspace"
 	"pivote/internal/infra/db"
 	"pivote/internal/infra/rabbitmq"
 	"pivote/internal/infra/sse"
@@ -142,7 +143,7 @@ func main() {
 	}
 
 	// Run migrations
-	if err := db.AutoMigrate(&user.User{}, &program.Program{}, &program.UserProgram{}, &program.ProgramAccessToken{}, &candidate.Candidate{}, &otp.Otp{}, &vote.Vote{}); err != nil {
+	if err := db.AutoMigrate(&user.User{}, &workspace.Workspace{}, &workspace.UserWorkspace{}, &program.Program{}, &program.UserProgram{}, &program.ProgramAccessToken{}, &candidate.Candidate{}, &otp.Otp{}, &vote.Vote{}); err != nil {
 		panic("Failed to migrate database: " + err.Error())
 	}
 

@@ -47,7 +47,7 @@ type ProgramResponse struct {
 }
 
 // Create Program - admins only
-func (program *ProgramService) CreateProgram(payload programDto.CreateProgramDto) (*Program, error) {
+func (program *ProgramService) CreateProgram(userID uuid.UUID, payload programDto.CreateProgramDto) (*Program, error) {
 	
 	//parse the workspaceId to a uuid
 	workspaceID, err := uuid.Parse(payload.WorkspaceID)
@@ -62,9 +62,10 @@ func (program *ProgramService) CreateProgram(payload programDto.CreateProgramDto
 	}
 
 	newProgram := Program{
-		Name:        payload.Name,
-		Description: payload.Description,
-		WorkspaceID: workspaceID,
+		Name:         payload.Name,
+		Description:  payload.Description,
+		WorkspaceID:  workspaceID,
+		OwnerID:      userID,
 		VotingEndsAt: &votingEndsAt,
 	}
 
@@ -84,13 +85,13 @@ func (program *ProgramService) GetPrograms(userID uuid.UUID, workspaceID uuid.UU
 	switch role {
 	case user.RoleUser:
 		err = db.DB.Model(&Program{}).
-		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined", workspaceID).
+		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined").
 		Where("programs.workspace_id = ?", workspaceID).
 		Joins("JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID).
 		Find(&response).Error
 	case user.RoleAdmin:
 		err = db.DB.Model(&Program{}).
-		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined", userID, workspaceID).
+		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined").
 		Where("programs.owner_id = ? AND programs.workspace_id = ?", userID, workspaceID).
 		Joins("LEFT JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID).
 		Find(&response).Error

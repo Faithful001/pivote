@@ -23,17 +23,20 @@ func NewUserController() *UserController {
 // Instead we read the context key directly (same logic as middlewares.GetUser).
 func (ctrl *UserController) GetMe(c *gin.Context) {
 	workspaceId := c.Query("workspace_id")
+	var workspaceIDPtr *uuid.UUID
 
-	workspaceID, err := uuid.Parse(workspaceId)
-
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"statusCode": http.StatusBadRequest,
-			"success":    false,
-			"message":    "Invalid workspace id",
-			"data":       nil,
-		})
-		return
+	if workspaceId != "" {
+		parsedID, err := uuid.Parse(workspaceId)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"statusCode": http.StatusBadRequest,
+				"success":    false,
+				"message":    "Invalid workspace id",
+				"data":       nil,
+			})
+			return
+		}
+		workspaceIDPtr = &parsedID
 	}
 
 	val, exists := c.Get("auth_user")
@@ -58,15 +61,16 @@ func (ctrl *UserController) GetMe(c *gin.Context) {
 		return
 	}
 
-	result, err := ctrl.service.GetMe(&workspaceID, u)
+	result, err := ctrl.service.GetMe(workspaceIDPtr, u)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-		"statusCode": http.StatusInternalServerError,
-		"success":    false,
-		"message":    err.Error(),
-		"data":       u,
-	})
+			"statusCode": http.StatusInternalServerError,
+			"success":    false,
+			"message":    err.Error(),
+			"data":       u,
+		})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -80,6 +84,7 @@ func (ctrl *UserController) GetMe(c *gin.Context) {
 func (ctrl *UserController) GetUser(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
+	
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"statusCode": http.StatusBadRequest,

@@ -33,6 +33,17 @@ func NewProgramController(mq *rabbitmq.RabbitMQ, sseBroadcaster *sse.Broadcaster
 }
 
 func (ctrl *ProgramController) CreateProgram(c *gin.Context) {
+	user, err := middlewares.GetUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"statusCode": http.StatusUnauthorized,
+			"success":    false,
+			"message":    "Unauthorized",
+			"data":       nil,
+		})
+		return
+	}
+
 	var payload dto.CreateProgramDto
 
 	if err := c.ShouldBindBodyWithJSON(&payload); err != nil {
@@ -45,7 +56,7 @@ func (ctrl *ProgramController) CreateProgram(c *gin.Context) {
 		return
 	}
 
-	result, err := ctrl.service.CreateProgram(payload)
+	result, err := ctrl.service.CreateProgram(user.ID, payload)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{

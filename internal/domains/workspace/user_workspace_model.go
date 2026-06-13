@@ -24,9 +24,5 @@ func (uw *UserWorkspace) BeforeCreate (tx *gorm.DB) error {
 		uw.ID = uuid.New()
 	} 
 
-	if uw.WorkspaceID == uuid.Nil {
-		uw.WorkspaceID = uuid.New()
-	} 
-
 	return nil
 }

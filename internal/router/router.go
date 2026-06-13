@@ -7,6 +7,7 @@ import (
 	"pivote/internal/domains/program"
 	"pivote/internal/domains/user"
 	"pivote/internal/domains/vote"
+	"pivote/internal/domains/workspace"
 	"pivote/internal/infra/rabbitmq"
 	"pivote/internal/infra/sse"
 	"pivote/internal/infra/websocket"
@@ -55,6 +56,10 @@ func SetupRouter(mq *rabbitmq.RabbitMQ, socketio *websocket.SocketIOServer, sseB
 	{
 		voteRoutes := v1.Group("/votes")
 		vote.RegisterRoutes(voteRoutes, socketio)
+	}
+
+	{
+		workspace.RegisterRoutes(v1)
 	}
 
 	router.GET("/socket.io/*any", gin.WrapH(socketio.Server))
