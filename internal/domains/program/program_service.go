@@ -91,11 +91,31 @@ func (program *ProgramService) GetPrograms(userID uuid.UUID, workspaceID uuid.UU
 		Joins("Workspace").
 		Find(&response).Error
 	case user.RoleAdmin:
+		if workspaceID == uuid.Nil {
+			var defaultWorkspace struct {
+				ID uuid.UUID
+			}
+			err = db.DB.Table("workspaces").
+				Select("id").
+				Where("owner_id = ?", userID).
+				Order("created_at ASC").
+				First(&defaultWorkspace).Error
+
+			if err == nil {
+				workspaceID = defaultWorkspace.ID
+			} else if errors.Is(err, gorm.ErrRecordNotFound) {
+				// No workspace owned by this admin yet, return an empty list
+				return []ProgramResponse{}, nil
+			} else {
+				return nil, err
+			}
+		}
+
 		err = db.DB.Model(&Program{}).
-		Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined").
-		Where("programs.owner_id = ? AND programs.workspace_id = ?", userID, workspaceID).
-		Joins("LEFT JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID).
-		Find(&response).Error
+			Select("programs.*, CASE WHEN up.program_id IS NOT NULL THEN true ELSE false END AS is_joined").
+			Where("programs.owner_id = ? AND programs.workspace_id = ?", userID, workspaceID).
+			Joins("LEFT JOIN user_programs up ON up.program_id = programs.id AND up.user_id = ?", userID).
+			Find(&response).Error
 	}
 
 	if err != nil {

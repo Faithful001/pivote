@@ -93,17 +93,20 @@ func (ctrl *ProgramController) GetPrograms(c *gin.Context) {
 	//workspace_id
 	workspaceId := c.Query("workspace_id")
 
-	//parse the workspaceId to a uuid
-	workspaceID, err := uuid.Parse(workspaceId)
-
-	if err != nil && user.Role == "admin"{
-		c.JSON(http.StatusBadRequest, gin.H{
-			"statusCode": http.StatusBadRequest,
-			"success":    false,
-			"message":    "Invalid workspace id",
-			"data":       nil,
-		})
-		return
+	//parse the workspaceId to a uuid only if it's provided
+	var workspaceID uuid.UUID
+	if workspaceId != "" {
+		var err error
+		workspaceID, err = uuid.Parse(workspaceId)
+		if err != nil && user.Role == "admin" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"statusCode": http.StatusBadRequest,
+				"success":    false,
+				"message":    "Invalid workspace id",
+				"data":       nil,
+			})
+			return
+		}
 	}
 
 

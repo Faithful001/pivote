@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"errors"
+	"log"
 	"pivote/internal/domains/workspace/dto"
 	"pivote/internal/infra/db"
 
@@ -48,6 +49,8 @@ func (ws *WorkspaceService) GetWorkspaces(userID uuid.UUID) (*[]Workspace, error
 	if err := db.DB.Where("owner_id = ?", userID).Find(&workspaces).Error; err != nil {
 		return nil, err
 	}
+
+	log.Printf("Workspaces found %v", workspaces)
 
 	return &workspaces, nil
 }

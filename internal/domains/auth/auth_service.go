@@ -124,3 +124,46 @@ func (s *AuthService) VerifyAccount(email string, otpString string) (*user.User,
 	return &userRecord, nil
 }
 
+func (s *AuthService) ForgotPassword(email string) error {
+	// Check if user exists
+	_, err := s.userService.GetUserByEmail(email)
+	if err != nil {
+		return err
+	}
+
+	// Generate and send OTP via otpService
+	err = s.otpService.SendOtpToEmail(email, otpdto.PurposeResetPwd)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *AuthService) ResetPassword(email, otpString, newPassword string) error {
+	// Check if user exists
+	_, err := s.userService.GetUserByEmail(email)
+	if err != nil {
+		return err
+	}
+
+	// Verify the OTP
+	if err := s.otpService.VerifyOtp(email, otpString, otpdto.PurposeResetPwd); err != nil {
+		return err
+	}
+
+	// Hash the new password
+	hashedPassword, err := utils.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	// Update the user password in DB
+	result := db.DB.Model(&user.User{}).Where("email = ?", email).Update("password", hashedPassword)
+	if result.Error != nil {
+		return errors.New("failed to update password")
+	}
+
+	return nil
+}
+

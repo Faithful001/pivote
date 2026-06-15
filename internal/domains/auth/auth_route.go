@@ -11,5 +11,7 @@ func RegisterRoutes(router *gin.RouterGroup, mq *rabbitmq.RabbitMQ) {
 
 	router.POST("/register", controller.Register) 
 	router.POST("/login", controller.Login)       
-	router.POST("/verify-account", controller.VerifyAccount)      
+	router.POST("/verify-account", controller.VerifyAccount)
+	router.POST("/forgot-password", controller.ForgotPassword)
+	router.POST("/reset-password", controller.ResetPassword)
 }

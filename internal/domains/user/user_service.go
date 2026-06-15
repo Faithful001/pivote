@@ -44,22 +44,31 @@ func (s *UserService) CreateUser(user *User) (*User, error) {
 }
 
 func (s *UserService) GetMe(workspaceID *uuid.UUID, user User) (map[string]any, error) {
-	if workspaceID == nil {
-		// No workspace requested - return user only
-		return map[string]any{
-			"workspace": nil,
-			"user":      user,
-		}, nil
-	}
-
 	var foundWorkspace WorkspaceInfo
-	result := db.DB.Table("workspaces").Where("id = ?", *workspaceID).First(&foundWorkspace)
 
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return nil, errors.New("workspace not found")
+	if workspaceID == nil {
+		result := db.DB.Table("workspaces").
+			Where("owner_id = ?", user.ID).
+			Order("created_at ASC").
+			First(&foundWorkspace)
+
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				return map[string]any{
+					"workspace": nil,
+					"user":      user,
+				}, nil
+			}
+			return nil, result.Error
 		}
-		return nil, result.Error
+	} else {
+		result := db.DB.Table("workspaces").Where("id = ?", *workspaceID).First(&foundWorkspace)
+		if result.Error != nil {
+			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				return nil, errors.New("workspace not found")
+			}
+			return nil, result.Error
+		}
 	}
 
 	return map[string]any{
@@ -67,6 +76,7 @@ func (s *UserService) GetMe(workspaceID *uuid.UUID, user User) (map[string]any, 
 		"user":      user,
 	}, nil
 }
+
 
 func (s *UserService) GetUserByID(id uuid.UUID) (*User, error) {
 	var user User

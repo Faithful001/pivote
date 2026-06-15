@@ -89,7 +89,7 @@ func (wc *WorkspaceController) GetWorkspaces(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"statusCode": http.StatusOK,
 		"success":    true,
 		"message":    "All workspaces",

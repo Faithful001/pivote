@@ -128,3 +128,75 @@ func (ctrl *AuthController) VerifyAccount (c *gin.Context){
 		"data":       userVerified,
 	})
 }
+
+func (ctrl *AuthController) ForgotPassword(c *gin.Context) {
+	var payload dto.ForgotPasswordDto
+
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"statusCode": http.StatusBadRequest,
+			"success":    false,
+			"message":    "Invalid request body",
+			"data":       nil,
+		})
+		return
+	}
+
+	err := ctrl.service.ForgotPassword(payload.Email)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if err.Error() == "user not found" {
+			status = http.StatusNotFound
+		}
+		c.JSON(status, gin.H{
+			"statusCode": status,
+			"success":    false,
+			"message":    err.Error(),
+			"data":       nil,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"statusCode": http.StatusOK,
+		"success":    true,
+		"message":    "OTP sent successfully",
+		"data":       nil,
+	})
+}
+
+func (ctrl *AuthController) ResetPassword(c *gin.Context) {
+	var payload dto.ResetPasswordDto
+
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"statusCode": http.StatusBadRequest,
+			"success":    false,
+			"message":    "Invalid request body",
+			"data":       nil,
+		})
+		return
+	}
+
+	err := ctrl.service.ResetPassword(payload.Email, payload.Otp, payload.Password)
+	if err != nil {
+		status := http.StatusUnauthorized
+		if err.Error() == "user not found" {
+			status = http.StatusNotFound
+		}
+		c.JSON(status, gin.H{
+			"statusCode": status,
+			"success":    false,
+			"message":    err.Error(),
+			"data":       nil,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"statusCode": http.StatusOK,
+		"success":    true,
+		"message":    "Password reset successfully",
+		"data":       nil,
+	})
+}
