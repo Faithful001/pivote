@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:15
@@ -24,7 +22,16 @@ services:
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     restart: unless-stopped
+  redis:
+    image: redis:7
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
 
 volumes:
   rabbitmq-data:
   postgres-data:
+  redis-data:

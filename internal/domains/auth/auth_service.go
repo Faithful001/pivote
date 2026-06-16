@@ -36,12 +36,19 @@ type AuthResponse struct {
 	AccessToken string     `json:"token"`
 }
 
-func (s *AuthService) Register(payload authdto.RegisterDto) (*user.User, error) {
+func (s *AuthService) Register(payload authdto.RegisterDto, isAdmin bool) (*user.User, error) {
+	var role user.Role
+	if isAdmin {
+		role = user.RoleAdmin
+	} else {
+		role = user.RoleUser
+	}
+	
 	newUser := user.User{
 		Name:     payload.Name,
 		Email:    payload.Email,
 		Password: payload.Password,
-		Role:     "user",
+		Role:     role,
 	}
 
 	userCreated, err := s.userService.CreateUser(&newUser)
@@ -57,7 +64,13 @@ func (s *AuthService) Register(payload authdto.RegisterDto) (*user.User, error) 
 	return userCreated, nil
 }
 
-func (s *AuthService) Login(email, password string) (*AuthResponse, error) {
+func (s *AuthService) Login(email, password string, isAdmin bool) (*AuthResponse, error) {
+	var role user.Role
+	if isAdmin {
+		role = user.RoleAdmin
+	} else {
+		role = user.RoleUser
+	}
 	// Find user by email
 	user, err := s.userService.GetUserByEmail(email)
 	
@@ -68,13 +81,18 @@ func (s *AuthService) Login(email, password string) (*AuthResponse, error) {
 		return nil, err
 	}
 
-	// Verify password
-	if err := utils.VerifyPassword(user.Password, password); err != nil {
+	// Check if user role matches
+	if user.Role != role {
 		return nil, errors.New("Invalid email or password")
 	}
 
 	if user.IsVerified == false {
 		return nil, errors.New("user not verified")
+	}
+
+	// Verify password
+	if err := utils.VerifyPassword(user.Password, password); err != nil {
+		return nil, errors.New("Invalid email or password")
 	}
 
 	// Generate JWT token
@@ -102,7 +120,32 @@ func (s *AuthService) Login(email, password string) (*AuthResponse, error) {
 	}, nil
 }
 
-func (s *AuthService) VerifyAccount(email string, otpString string) (*user.User, error) {
+func (s *AuthService) VerifyAccount(email string, otpString string, isAdmin bool) (*user.User, error) {
+	var role user.Role
+	if isAdmin {
+		role = user.RoleAdmin
+	} else {
+		role = user.RoleUser
+	}
+	// Find user by email
+	foundUser, err := s.userService.GetUserByEmail(email)
+	
+	if err != nil {
+		if err.Error() == "user not found" || errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("Invalid email or password")
+		}
+		return nil, err
+	}
+
+	// Check if user role matches
+	if foundUser.Role != role {
+		return nil, errors.New("Invalid email or password")
+	}
+
+	if foundUser.IsVerified == true {
+		return nil, errors.New("User already verified")
+	}
+	
 	// Verify the OTP
 	if err := s.otpService.VerifyOtp(email, otpString, otpdto.PurposeVerifyAcct); err != nil {
 		return nil, err
@@ -124,12 +167,29 @@ func (s *AuthService) VerifyAccount(email string, otpString string) (*user.User,
 	return &userRecord, nil
 }
 
-func (s *AuthService) ForgotPassword(email string) error {
-	// Check if user exists
-	_, err := s.userService.GetUserByEmail(email)
+func (s *AuthService) ForgotPassword(email string, isAdmin bool) error {
+	var role user.Role
+	if isAdmin {
+		role = user.RoleAdmin
+	} else {
+		role = user.RoleUser
+	}
+	// Find user by email
+	foundUser, err := s.userService.GetUserByEmail(email)
+	
+	
 	if err != nil {
+		if err.Error() == "user not found" || errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("Invalid email or password")
+		}
 		return err
 	}
+
+	// Check if user role matches
+	if foundUser.Role != role {
+		return errors.New("Invalid email or password")
+	}
+
 
 	// Generate and send OTP via otpService
 	err = s.otpService.SendOtpToEmail(email, otpdto.PurposeResetPwd)
@@ -140,11 +200,26 @@ func (s *AuthService) ForgotPassword(email string) error {
 	return nil
 }
 
-func (s *AuthService) ResetPassword(email, otpString, newPassword string) error {
-	// Check if user exists
-	_, err := s.userService.GetUserByEmail(email)
+func (s *AuthService) ResetPassword(email, otpString, newPassword string, isAdmin bool) error {
+	var role user.Role
+	if isAdmin {
+		role = user.RoleAdmin
+	} else {
+		role = user.RoleUser
+	}
+	// Find user by email
+	foundUser, err := s.userService.GetUserByEmail(email)
+	
 	if err != nil {
+		if err.Error() == "user not found" || errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("Invalid email or password")
+		}
 		return err
+	}
+
+	// Check if user role matches
+	if foundUser.Role != role {
+		return errors.New("Invalid email or password")
 	}
 
 	// Verify the OTP
@@ -166,4 +241,3 @@ func (s *AuthService) ResetPassword(email, otpString, newPassword string) error 
 
 	return nil
 }
-

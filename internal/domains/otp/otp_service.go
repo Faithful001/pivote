@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"log"
 	"pivote/internal/domains/otp/dto"
 	"pivote/internal/infra/db"
 	"pivote/internal/infra/rabbitmq"
@@ -44,11 +45,13 @@ func (s *OtpService) SendOtpToEmail(email string, purpose dto.Purpose) error {
 		return err
 	}
 
-	//save to db
 	hashedOtp, err := utils.HashPassword(otp)
-
 	if err != nil {
 		return err
+	}
+
+	if err := db.DB.Where("email = ? AND purpose = ?", email, purpose).Delete(&Otp{}).Error; err != nil {
+		return fmt.Errorf("failed to clear existing OTP: %w", err)
 	}
 
 	otpToBeSaved := Otp{
@@ -58,15 +61,15 @@ func (s *OtpService) SendOtpToEmail(email string, purpose dto.Purpose) error {
 		ExpiresAt: time.Now().Add(15 * time.Minute),
 	}
 
-	if err := db.DB.Save(&otpToBeSaved).Error; err != nil {
-		return err
+	if err := db.DB.Create(&otpToBeSaved).Error; err != nil {
+		return fmt.Errorf("failed to save OTP: %w", err)
 	}
 
 	// Publish to RabbitMQ
-	body := fmt.Sprintf(`{"email":"%s","otp":"%s", "purpose":"%s"}`, email, otp, purpose)
+	body := fmt.Sprintf(`{"email":"%s","otp":"%s","purpose":"%s"}`, email, otp, purpose)
 
-	err = s.mq.Publish(context.Background(), rabbitmq.PublishConfig{
-		Exchange:   "", 
+	if err := s.mq.Publish(context.Background(), rabbitmq.PublishConfig{
+		Exchange:   "",
 		RoutingKey: "email.transactional",
 		Mandatory:  false,
 		Immediate:  false,
@@ -74,12 +77,9 @@ func (s *OtpService) SendOtpToEmail(email string, purpose dto.Purpose) error {
 			ContentType: "application/json",
 			Body:        []byte(body),
 		},
-	})
-
-	if err != nil {
+	}); err != nil {
 		return fmt.Errorf("failed to queue email: %w", err)
 	}
-	
 
 	return nil
 }
@@ -89,7 +89,11 @@ func (s *OtpService) VerifyOtp(email string, otp string, purpose dto.Purpose) er
 
 	result := db.DB.Where("email = ? AND purpose = ?", email, purpose).First(&otpFromDb)
 
+	log.Println("otp object from db", otpFromDb)
+	log.Println("otp from db", otpFromDb.Otp)
+
 	if result.Error != nil {
+		log.Println("Error while verifing OTP in OTP service: ", result.Error.Error())
 		return fmt.Errorf("invalid OTP")
 	}
 
@@ -102,11 +106,13 @@ func (s *OtpService) VerifyOtp(email string, otp string, purpose dto.Purpose) er
 
 	// Verify the OTP
 	if err := utils.VerifyPassword(otpFromDb.Otp, otp); err != nil {
+		log.Println("Error while verifing OTP with utils.VerifyPassword in OTP service: ", err.Error())
 		return fmt.Errorf("invalid OTP")
 	}
 
 	// Delete OTP after successful verification to prevent reuse
 	if err := db.DB.Delete(&otpFromDb).Error; err != nil {
+		log.Println("Error while deleting OTP in OTP service: ", err.Error())	
 		return fmt.Errorf("failed to delete OTP: %w", err)
 	}
 

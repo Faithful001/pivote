@@ -4,19 +4,10 @@ import (
 	"errors"
 	"pivote/internal/domains/user/dto"
 	"pivote/internal/infra/db"
-	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
-
-type WorkspaceInfo struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	OwnerID   uuid.UUID `json:"owner_id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
 
 type UserService struct{}
 
@@ -29,7 +20,7 @@ func (s *UserService) CreateUser(user *User) (*User, error) {
 	result := db.DB.Where("email = ?", user.Email).First(&existingUser)
 	
 	if result.Error == nil {
-		return nil, errors.New("User with this email already exists")
+		return nil, errors.New("Email already in use")
 	}
 	
 	if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -42,41 +33,6 @@ func (s *UserService) CreateUser(user *User) (*User, error) {
 	
 	return user, nil
 }
-
-func (s *UserService) GetMe(workspaceID *uuid.UUID, user User) (map[string]any, error) {
-	var foundWorkspace WorkspaceInfo
-
-	if workspaceID == nil {
-		result := db.DB.Table("workspaces").
-			Where("owner_id = ?", user.ID).
-			Order("created_at ASC").
-			First(&foundWorkspace)
-
-		if result.Error != nil {
-			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				return map[string]any{
-					"workspace": nil,
-					"user":      user,
-				}, nil
-			}
-			return nil, result.Error
-		}
-	} else {
-		result := db.DB.Table("workspaces").Where("id = ?", *workspaceID).First(&foundWorkspace)
-		if result.Error != nil {
-			if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				return nil, errors.New("workspace not found")
-			}
-			return nil, result.Error
-		}
-	}
-
-	return map[string]any{
-		"workspace": foundWorkspace,
-		"user":      user,
-	}, nil
-}
-
 
 func (s *UserService) GetUserByID(id uuid.UUID) (*User, error) {
 	var user User

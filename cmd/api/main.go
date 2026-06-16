@@ -12,6 +12,7 @@ import (
 	"pivote/internal/domains/workspace"
 	"pivote/internal/infra/db"
 	"pivote/internal/infra/rabbitmq"
+	redisClient "pivote/internal/infra/redis"
 	"pivote/internal/infra/sse"
 	"pivote/internal/infra/websocket"
 	"pivote/internal/router"
@@ -25,6 +26,9 @@ import (
 func main() {
 	// Initialize database connection
 	db.InitDB()
+
+	// Initialize Redis 
+	redisClient.Init()
 
 	// Initialize rabbitmq
 	amqpURL := os.Getenv("RABBITMQ_URL")

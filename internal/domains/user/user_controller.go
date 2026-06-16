@@ -18,26 +18,7 @@ func NewUserController() *UserController {
 	}
 }
 
-// GetMe returns the currently authenticated user's profile.
-// NOTE: Do NOT import middlewares here. middlewares imports user, creating a cycle.
-// Instead we read the context key directly (same logic as middlewares.GetUser).
 func (ctrl *UserController) GetMe(c *gin.Context) {
-	workspaceId := c.Query("workspace_id")
-	var workspaceIDPtr *uuid.UUID
-
-	if workspaceId != "" {
-		parsedID, err := uuid.Parse(workspaceId)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"statusCode": http.StatusBadRequest,
-				"success":    false,
-				"message":    "Invalid workspace id",
-				"data":       nil,
-			})
-			return
-		}
-		workspaceIDPtr = &parsedID
-	}
 
 	val, exists := c.Get("auth_user")
 	if !exists {
@@ -61,23 +42,11 @@ func (ctrl *UserController) GetMe(c *gin.Context) {
 		return
 	}
 
-	result, err := ctrl.service.GetMe(workspaceIDPtr, u)
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"statusCode": http.StatusInternalServerError,
-			"success":    false,
-			"message":    err.Error(),
-			"data":       u,
-		})
-		return
-	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"statusCode": http.StatusOK,
 		"success":    true,
 		"message":    "Profile fetched successfully",
-		"data":       result,
+		"data":       u,
 	})
 }
 

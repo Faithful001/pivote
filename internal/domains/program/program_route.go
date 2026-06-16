@@ -6,6 +6,7 @@ import (
 	"pivote/internal/infra/rabbitmq"
 	"pivote/internal/infra/sse"
 	"pivote/internal/middlewares"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,16 +18,32 @@ func RegisterRoutes(router *gin.RouterGroup, mq *rabbitmq.RabbitMQ, sseBroadcast
 		panic(fmt.Sprintf("failed to initialize program controller: %v", err))
 	}
 
-	router.POST("/:id/join", controller.JoinProgram) 
-	router.POST("/:id/request-join", controller.RequestJoinLink)
+	router.POST("/:id/join",
+		middlewares.RateLimitByIP("program:join", 10, 15*time.Minute),
+		controller.JoinProgram,
+	)
+
+	router.POST("/:id/request-join",
+		middlewares.RateLimitByIP("program:request-join", 5, 15*time.Minute),
+		controller.RequestJoinLink,
+	)
 
 	// User & Admin protected routes
 	protected := router.Group("")
 	protected.Use(middlewares.Standard(user.RoleAdmin, user.RoleUser))
 
-	protected.GET("", controller.GetPrograms) 
-	protected.GET("/:id", controller.GetProgramById)       
-	protected.GET("/:id/countdown", controller.StreamCountdown)
+	protected.GET("", controller.GetPrograms)
+	protected.GET("/:id", controller.GetProgramById)
+
+	protected.GET("/:id/countdown",
+		middlewares.RateLimit(middlewares.RateLimitConfig{
+			KeyPrefix: "program:countdown",
+			Max:       30,
+			Window:    time.Minute,
+			UseUserID: true,
+		}),
+		controller.StreamCountdown,
+	)
 
 	// Admin-only write routes
 	admin := router.Group("")

@@ -4,6 +4,7 @@ import (
 	"pivote/internal/domains/user"
 	"pivote/internal/infra/websocket"
 	"pivote/internal/middlewares"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,12 +14,18 @@ func RegisterRoutes(router *gin.RouterGroup, socketio *websocket.SocketIOServer)
 	controller := NewVoteController(socketio)
 
 	protected := router.Group("/")
-	// Use Standard middleware (Roles: Admin, User)
-	// Keeps it simple! If you need specific permissions (e.g. "read", "write"), you can use the full struct.
 	protected.Use(middlewares.Standard(user.RoleAdmin, user.RoleUser))
 
-	// Vote routes
-	protected.POST("/toggle", controller.ToggleVote)                             // POST /votes/toggle
-	protected.GET("/program/:program_id", controller.GetVotesByProgramID)       // GET /votes/program/:program_id
-	protected.GET("/candidate/:candidate_id", controller.GetVotesByCandidateID) // GET /votes/candidate/:candidate_id
+	protected.POST("/toggle",
+		middlewares.RateLimit(middlewares.RateLimitConfig{
+			KeyPrefix: "vote:toggle",
+			Max:       20,
+			Window:    time.Minute,
+			UseUserID: true,
+		}),
+		controller.ToggleVote,
+	)
+
+	protected.GET("/program/:program_id", controller.GetVotesByProgramID)
+	protected.GET("/candidate/:candidate_id", controller.GetVotesByCandidateID)
 }
