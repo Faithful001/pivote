@@ -270,7 +270,7 @@ func (p *ProgramService) JoinProgram(programID uuid.UUID, workspaceID uuid.UUID,
 			return err
 		}
 		if count > 0 {
-			return nil
+			return errors.New("you've already joined this program.")
 		}
 
 		pac.IsUsed = true
