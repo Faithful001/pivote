@@ -81,6 +81,8 @@ func (s *OtpService) SendOtpToEmail(email string, purpose dto.Purpose) error {
 		return fmt.Errorf("failed to queue email: %w", err)
 	}
 
+	fmt.Printf("otp sent to %s", email)
+
 	return nil
 }
 
