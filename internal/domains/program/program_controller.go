@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	dto "pivote/internal/domains/program/dto"
+	"pivote/internal/domains/user"
 	"pivote/internal/infra/rabbitmq"
 	"pivote/internal/infra/sse"
 	"pivote/internal/middlewares"
@@ -78,7 +79,7 @@ func (ctrl *ProgramController) CreateProgram(c *gin.Context) {
 
 func (ctrl *ProgramController) GetPrograms(c *gin.Context) {
 	// Get user from context to check program enrollment
-	user, err := middlewares.GetUser(c)
+	foundUser, err := middlewares.GetUser(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"statusCode": http.StatusUnauthorized,
@@ -88,29 +89,31 @@ func (ctrl *ProgramController) GetPrograms(c *gin.Context) {
 		})
 		return
 	}
-	userID := user.ID
+	userID := foundUser.ID
 	
 	//workspace_id
 	workspaceId := c.Query("workspace_id")
 
 	//parse the workspaceId to a uuid only if it's provided
 	var workspaceID uuid.UUID
-	if workspaceId != "" {
-		var err error
-		workspaceID, err = uuid.Parse(workspaceId)
-		if err != nil && user.Role == "admin" {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"statusCode": http.StatusBadRequest,
-				"success":    false,
-				"message":    "Invalid workspace id",
-				"data":       nil,
-			})
-			return
+	
+	if foundUser.Role == user.RoleAdmin {
+		if workspaceId != "" {
+			var err error
+			workspaceID, err = uuid.Parse(workspaceId)
+			if err != nil && foundUser.Role == "admin" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"statusCode": http.StatusBadRequest,
+					"success":    false,
+					"message":    "Invalid workspace id",
+					"data":       nil,
+				})
+				return
+			}
 		}
 	}
 
-
-	result, err := ctrl.service.GetPrograms(userID, workspaceID, user.Role)
+	result, err := ctrl.service.GetPrograms(userID, workspaceID, foundUser.Role)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
