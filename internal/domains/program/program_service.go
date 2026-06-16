@@ -329,7 +329,7 @@ func (p *ProgramService) RequestJoinLink(userEmail string, programID uuid.UUID, 
 
 	// user does not exist - send registration nudge email and return
 	if errors.Is(userErr, gorm.ErrRecordNotFound) {
-		return p.sendRegistrationNudge(userEmail, programID, foundProgram.Name)
+		return p.sendRegistrationNudge(userEmail, workspaceID, foundWorkspace.Name, programID, foundProgram.Name)
 	}
 
 	// 3. Check if already enrolled
@@ -406,24 +406,27 @@ func (p *ProgramService) RequestJoinLink(userEmail string, programID uuid.UUID, 
 
 // sendRegistrationNudge sends an email to unregistered users
 // with a link to register before joining the program
-func (p *ProgramService) sendRegistrationNudge(userEmail string, programID uuid.UUID, programName string) error {
+func (p *ProgramService) sendRegistrationNudge(userEmail string, workspaceID uuid.UUID, workspaceName string, programID uuid.UUID, programName string) error {
 	baseURL := "http://localhost:5173"
 	if os.Getenv("ENV") == "production" {
 		baseURL = "https://pivote.pxxl.run"
 	}
 
-	registerLink := fmt.Sprintf("%s/register?email=%s&program_id=%s&program_name=%s",
+	registerLink := fmt.Sprintf("%s/register?email=%s&workspace_id=%s&workspace_name=%s&program_id=%s&program_name=%s",
 		baseURL,
 		url.QueryEscape(userEmail),
+		workspaceID.String(),
+		url.QueryEscape(workspaceName),
 		programID.String(),
 		url.QueryEscape(programName),
 	)
 
 	return p.publishEmail(map[string]string{
-		"email":         userEmail,
-		"register_link": registerLink,
-		"program_name":  programName,
-		"purpose":       string(dto.PurposeRegisterToJoin),
+		"email":          userEmail,
+		"register_link":  registerLink,
+		"workspace_name": workspaceName,
+		"program_name":   programName,
+		"purpose":        string(dto.PurposeRegisterToJoin),
 	})
 }
 
