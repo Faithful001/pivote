@@ -135,7 +135,11 @@ templateMap := map[dto.Purpose]string{
 
 	_, err := c.client.Emails.Send(params)
 	if err != nil {
+		fmt.Printf("Error sending email to %s, error is %v", msg.Email, err)
 		return err
 	}
+
+	fmt.Printf("Email sent to %s", msg.Email)
+
 	return nil
 }
