@@ -2,9 +2,9 @@ services:
   postgres:
     image: postgres:15
     environment:
-      POSTGRES_USER: pivote
-      POSTGRES_PASSWORD: pivote123
-      POSTGRES_DB: pivotedb
+      POSTGRES_USER: your-db-user
+      POSTGRES_PASSWORD: your-db-pwd
+      POSTGRES_DB: your-db-name
     ports:
       - "5435:5432"
     volumes:
@@ -14,8 +14,8 @@ services:
     image: rabbitmq:3-management
     hostname: rabbit-host
     environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: admin123
+      RABBITMQ_DEFAULT_USER: your-rabbitmq-user
+      RABBITMQ_DEFAULT_PASS: your-rabbitmq-pwd
     ports:
       - "5672:5672"
       - "15672:15672"

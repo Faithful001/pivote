@@ -17,7 +17,7 @@ func CORS() gin.HandlerFunc {
 			allowedOrigins[i] = strings.TrimSpace(o)
 		}
 	} else {
-		allowedOrigins = []string{"http://localhost:5173", "http://localhost:3000"}
+		allowedOrigins = []string{"http://localhost:5173", "http://localhost:3000", "https://usepivote.vercel.app", "https://pivote.pxxl.run"}
 	}
 
 	return func(c *gin.Context) {
