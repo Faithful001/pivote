@@ -384,7 +384,7 @@ func (p *ProgramService) RequestJoinLink(userEmail string, programID uuid.UUID, 
 	// 6. Build join link
 	baseURL := "http://localhost:5173"
 	if os.Getenv("ENV") == "production" {
-		baseURL = "https://pivote.pxxl.run"
+		baseURL = "https://usepivote.vercel.app"
 	}
 	joinLink := fmt.Sprintf("%s/programs/%s/join?token=%s&email=%s&workspace_id=%s&workspace_name=%s&program_name=%s",
 		baseURL,
@@ -409,7 +409,7 @@ func (p *ProgramService) RequestJoinLink(userEmail string, programID uuid.UUID, 
 func (p *ProgramService) sendRegistrationNudge(userEmail string, workspaceID uuid.UUID, workspaceName string, programID uuid.UUID, programName string) error {
 	baseURL := "http://localhost:5173"
 	if os.Getenv("ENV") == "production" {
-		baseURL = "https://pivote.pxxl.run"
+		baseURL = "https://usepivote.vercel.app"
 	}
 
 	registerLink := fmt.Sprintf("%s/register?email=%s&workspace_id=%s&workspace_name=%s&program_id=%s&program_name=%s",
