@@ -3,7 +3,11 @@ package websocket
 import (
 	"log"
 	"net/http"
+	"os"
+	"pivote/internal/infra/db"
+	"pivote/internal/utils"
 
+	"github.com/google/uuid"
 	socketio "github.com/googollee/go-socket.io"
 	"github.com/googollee/go-socket.io/engineio"
 	"github.com/googollee/go-socket.io/engineio/transport"
@@ -14,6 +18,12 @@ import (
 // SocketIOServer wraps the socket.io server to make it easy to inject and use in other packages (like vote service)
 type SocketIOServer struct {
 	Server *socketio.Server
+}
+
+type JoinPayload struct {
+	Token       string `json:"token"`
+	ProgramID   string `json:"program_id"`
+	WorkspaceID string `json:"workspace_id"`
 }
 
 // NewSocketIOServer initializes and configures the Socket.IO server.
@@ -35,11 +45,76 @@ func NewSocketIOServer() (*SocketIOServer, error) {
 		},
 	})
 
+	jwtSecret := os.Getenv("JWT_SECRET")
+	jwtUtil, err := utils.NewJWTUtil(jwtSecret)
+	if err != nil {
+		log.Printf("Socket.IO: JWT utility initialization failed: %v", err)
+	}
+
 	// Connection event
 	server.OnConnect("/", func(s socketio.Conn) error {
 		s.SetContext("")
 		log.Println("Socket.IO client connected:", s.ID())
 		return nil
+	})
+
+	// Join program room event
+	server.OnEvent("/", "join", func(s socketio.Conn, payload JoinPayload) {
+		if jwtUtil == nil {
+			s.Emit("error", map[string]string{"message": "JWT utility not initialized"})
+			return
+		}
+
+		claims, err := jwtUtil.ParseToken(payload.Token)
+		if err != nil {
+			s.Emit("error", map[string]string{"message": "Unauthorized: invalid token"})
+			return
+		}
+
+		userID, err := uuid.Parse(claims.Subject)
+		if err != nil {
+			s.Emit("error", map[string]string{"message": "Unauthorized: invalid user ID"})
+			return
+		}
+
+		programID, err := uuid.Parse(payload.ProgramID)
+		if err != nil {
+			s.Emit("error", map[string]string{"message": "Invalid program ID"})
+			return
+		}
+
+		authorized := false
+		if claims.Role == "admin" {
+			// Admins check program ownership
+			var count int64
+			db.DB.Table("programs").Where("id = ? AND owner_id = ?", programID, userID).Count(&count)
+			if count > 0 {
+				authorized = true
+			}
+		} else {
+			// Standard users check user_programs table
+			var count int64
+			db.DB.Table("user_programs").Where("user_id = ? AND program_id = ?", userID, programID).Count(&count)
+			if count > 0 {
+				authorized = true
+			}
+		}
+
+		if !authorized {
+			s.Emit("error", map[string]string{"message": "Unauthorized: you do not belong to this program"})
+			return
+		}
+
+		// Leave all other program rooms first
+		for _, room := range s.Rooms() {
+			if room != s.ID() && room != "/" {
+				s.Leave(room)
+			}
+		}
+
+		s.Join("program:" + payload.ProgramID)
+		log.Printf("Socket.IO client %s joined room program:%s", s.ID(), payload.ProgramID)
+		s.Emit("joined", map[string]string{"program_id": payload.ProgramID})
 	})
 
 	// Disconnect event
@@ -76,7 +151,22 @@ func NewSocketIOServer() (*SocketIOServer, error) {
 	return &SocketIOServer{Server: server}, nil
 }
 
-// BroadcastLeaderboard broadcasts the leaderboard update event to all connected clients.
-func (s *SocketIOServer) BroadcastLeaderboard(data interface{}) {
-	s.Server.BroadcastToNamespace("/", "leaderboard:update", data)
+// BroadcastLeaderboard broadcasts the leaderboard update event to clients in the program room.
+func (s *SocketIOServer) BroadcastLeaderboard(programID string, data interface{}) {
+	s.Server.BroadcastToRoom("/", "program:"+programID, "leaderboard:update", data)
+}
+
+// BroadcastVote broadcasts the vote event to clients in the program room.
+func (s *SocketIOServer) BroadcastVote(programID string, data interface{}) {
+	s.Server.BroadcastToRoom("/", "program:"+programID, "vote:broadcast", data)
+}
+
+// BroadcastStartProgram broadcasts the start program event to clients in the program room.
+func (s *SocketIOServer) BroadcastStartProgram(programID string, data interface{}) {
+	s.Server.BroadcastToRoom("/", "program:"+programID, "program:start", data)
+}
+
+// BroadcastStopProgram broadcasts the stop program event to clients in the program room.
+func (s *SocketIOServer) BroadcastStopProgram(programID string, data interface{}) {
+	s.Server.BroadcastToRoom("/", "program:"+programID, "program:stop", data)
 }

@@ -14,6 +14,7 @@ import (
 	"pivote/internal/domains/workspace"
 	"pivote/internal/infra/db"
 	"pivote/internal/infra/rabbitmq"
+	"pivote/internal/infra/websocket"
 	"pivote/internal/types"
 	"pivote/internal/utils"
 	"time"
@@ -25,8 +26,9 @@ import (
 
 
 type ProgramService struct {
-	jwtUtil *utils.JWTUtil
-	mq      *rabbitmq.RabbitMQ
+	jwtUtil 	*utils.JWTUtil
+	mq      	*rabbitmq.RabbitMQ
+	socketio 	*websocket.SocketIOServer
 }
 
 func NewProgramService(mq *rabbitmq.RabbitMQ) (*ProgramService, error) {
@@ -44,6 +46,11 @@ func NewProgramService(mq *rabbitmq.RabbitMQ) (*ProgramService, error) {
 type ProgramResponse struct {
 	Program
 	IsJoined bool `json:"is_joined"`
+}
+
+type ProgramEventData struct {
+	Type 		string 				`json:"type"`
+	ProgramID	string				`json:"program_id"`
 }
 
 // Create Program - admins only
@@ -72,6 +79,15 @@ func (program *ProgramService) CreateProgram(userID uuid.UUID, payload programDt
 	result := db.DB.Create(&newProgram)
 	if result.Error != nil {
 		return nil, result.Error
+	}
+
+	err = db.DB.Create(&UserProgram{
+			UserID:    userID,
+			ProgramID: newProgram.ID,
+		}).Error
+
+	if err != nil {
+		return nil, err
 	}
 
 	return &newProgram, nil
@@ -468,6 +484,7 @@ func (program *ProgramService) ToggleProgram(programID uuid.UUID, isActive bool,
 		
 		foundProgram.IsActive = isActive
 
+		// assign the votingEndsAt value to be persisted on the db
 		if isActive {
 			if votingEndsAt == "" {
 				return errors.New("voting_ends_at is required when activating a program")
@@ -501,6 +518,25 @@ func (program *ProgramService) ToggleProgram(programID uuid.UUID, isActive bool,
 	// Publish state change event to RabbitMQ fanout exchange
 	if publishErr := program.publishProgramStatusEvent(foundProgram.ID, foundProgram.IsActive, foundProgram.VotingEndsAt); publishErr != nil {
 		log.Printf("[ProgramService] Failed to publish program status event: %v", publishErr)
+	}
+
+	var ProgramEventDataType string
+
+	if isActive {
+		ProgramEventDataType = "program:start"
+	} else {
+		ProgramEventDataType = "program:stop"
+	}
+
+	msg := ProgramEventData{
+		Type: ProgramEventDataType,
+		ProgramID: foundProgram.ID.String(),
+	}
+
+	if isActive {
+		go program.socketio.BroadcastStartProgram(foundProgram.ID.String(), msg)
+	} else {
+		go program.socketio.BroadcastStopProgram(foundProgram.ID.String(), msg)
 	}
 
 	return &foundProgram, nil

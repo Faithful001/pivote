@@ -6,7 +6,7 @@ cmd = "go build -o ./tmp/main.exe cmd/api/main.go"
 bin = "tmp/main.exe"
 delay = 1000
 kill_delay = 500
-log = "build.log"
+log = "tmp/build.log"
 
 [log]
 time = true
@@ -17,4 +17,3 @@ exclude = ["tmp", "vendor"]
 
 [env]
 file = ".env"
-

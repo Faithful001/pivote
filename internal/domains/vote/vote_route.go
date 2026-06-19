@@ -14,7 +14,7 @@ func RegisterRoutes(router *gin.RouterGroup, socketio *websocket.SocketIOServer)
 	controller := NewVoteController(socketio)
 
 	protected := router.Group("/")
-	protected.Use(middlewares.Standard(user.RoleAdmin, user.RoleUser))
+	protected.Use(middlewares.Standard(user.RoleUser))
 
 	protected.POST("/toggle",
 		middlewares.RateLimit(middlewares.RateLimitConfig{

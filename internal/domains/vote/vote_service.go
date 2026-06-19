@@ -29,6 +29,12 @@ type ProgramVotesInfo struct {
 	UserVoteCandidateID *string          `json:"user_vote_candidate_id"`
 }
 
+type VoteEventData struct {
+	Type 		string 				`json:"type"`
+	Candidate 	candidate.Candidate `json:"candidate"`
+	UserID 		string 				`json:"user_id"`
+}
+
 func (v *VoteService) ToggleVoteCandidate(
 	userID uuid.UUID,
 	candidateID uuid.UUID,
@@ -104,6 +110,14 @@ func (v *VoteService) ToggleVoteCandidate(
 	}
 
 	go v.broadcastLeaderboard(c.ProgramID)
+	
+	msg := VoteEventData{
+		Type:      	"vote:broadcast",
+		Candidate: 	c,
+		UserID: 	userID.String(),
+	}
+
+	go v.socketio.BroadcastVote(c.ProgramID.String(), msg)
 
 	return &vote, nil
 }
@@ -160,7 +174,7 @@ func (v *VoteService) broadcastLeaderboard(programID uuid.UUID) {
 		Data:      entries,
 	}
 
-	v.socketio.BroadcastLeaderboard(msg)
+	v.socketio.BroadcastLeaderboard(programID.String(), msg)
 }
 
 func (v *VoteService) GetProgramVotesInfo(programID, userID uuid.UUID) (*ProgramVotesInfo, error) {
@@ -181,8 +195,10 @@ func (v *VoteService) GetProgramVotesInfo(programID, userID uuid.UUID) (*Program
 	var userVote Vote
 	var userVoteCandidateID *string = nil
 	var participantsCount int64 = 0
-
-	err := db.DB.Model(&program.UserProgram{}).Where("user_id = ? AND program_id = ?", userID, programID).Count(&participantsCount).Error
+	err := db.DB.Model(&program.UserProgram{}).
+		Joins("JOIN users ON user_programs.user_id = users.id").
+		Where("user_programs.program_id = ? AND users.role != ?", programID, "admin").
+		Count(&participantsCount).Error
 	if err != nil {
 		return nil, err
 	}

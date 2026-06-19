@@ -180,14 +180,14 @@ func (s *AuthService) ForgotPassword(email string, isAdmin bool) error {
 	
 	if err != nil {
 		if err.Error() == "user not found" || errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Invalid email or password")
+			return errors.New("Invalid email")
 		}
 		return err
 	}
 
 	// Check if user role matches
 	if foundUser.Role != role {
-		return errors.New("Invalid email or password")
+		return errors.New("Invalid email")
 	}
 
 
