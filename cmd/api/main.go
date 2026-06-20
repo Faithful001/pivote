@@ -77,8 +77,14 @@ func main() {
 		log.Fatalf("Failed to initialize Socket.IO server: %v", err)
 	}
 
+	//Initialize ProgramService
+	programService, err := program.NewProgramService(mq, ioServer)
+	if err != nil {
+		log.Fatalf("Failed to initialize ProgramService: %v", err)
+	}
+
 	// Initialize SSE Broadcaster Manager
-	sseBroadcaster := sse.NewBroadcasterManager()
+	sseBroadcaster := sse.NewBroadcasterManager(programService.ExpireProgram)
 
 	// Declare program events fanout exchange
 	err = mq.DeclareExchange("program.events", "fanout", true, false, false, false, nil)
@@ -152,7 +158,7 @@ func main() {
 	}
 
 	// Setup router with SSE Broadcaster Manager
-	r := router.SetupRouter(mq, ioServer, sseBroadcaster)
+	r := router.SetupRouter(programService, mq, ioServer, sseBroadcaster)
 
 	// Start server
 	r.Run(":8000")

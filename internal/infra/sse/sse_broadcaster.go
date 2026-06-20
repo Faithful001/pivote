@@ -19,14 +19,16 @@ type ProgramBroadcaster struct {
 
 // BroadcasterManager manages multiple program broadcasters
 type BroadcasterManager struct {
-	mu           sync.Mutex
-	broadcasters map[uuid.UUID]*ProgramBroadcaster
+	mu           	sync.Mutex
+	broadcasters 	map[uuid.UUID]*ProgramBroadcaster
+	OnExpire		func(uuid.UUID)
 }
 
 // NewBroadcasterManager creates a new BroadcasterManager
-func NewBroadcasterManager() *BroadcasterManager {
+func NewBroadcasterManager(onExpire func(uuid.UUID)) *BroadcasterManager {
 	return &BroadcasterManager{
-		broadcasters: make(map[uuid.UUID]*ProgramBroadcaster),
+		broadcasters: 	make(map[uuid.UUID]*ProgramBroadcaster),
+		OnExpire:		onExpire,
 	}
 }
 
@@ -163,9 +165,14 @@ func (m *BroadcasterManager) runTicker(programID uuid.UUID, stopChan chan struct
 					}
 					close(ch)
 				}
+				naturallyExpired := remaining <= 0
 				close(b.StopChan)
 				delete(m.broadcasters, programID)
 				m.mu.Unlock()
+
+				if naturallyExpired && m.OnExpire != nil {
+					m.OnExpire(programID)
+				}
 				return
 			}
 

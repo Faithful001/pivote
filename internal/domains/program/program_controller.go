@@ -20,14 +20,9 @@ type ProgramController struct {
 	sseBroadcaster *sse.BroadcasterManager
 }
 
-func NewProgramController(mq *rabbitmq.RabbitMQ, sseBroadcaster *sse.BroadcasterManager) (*ProgramController, error) {
-	programService, err := NewProgramService(mq)
-	if err != nil {
-		return nil, err
-	}
-
+func NewProgramController(service *ProgramService, mq *rabbitmq.RabbitMQ, sseBroadcaster *sse.BroadcasterManager) (*ProgramController, error) {
 	return &ProgramController{
-		service:        programService,
+		service:        service,
 		mq:             mq,
 		sseBroadcaster: sseBroadcaster,
 	}, nil

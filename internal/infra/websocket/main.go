@@ -170,3 +170,8 @@ func (s *SocketIOServer) BroadcastStartProgram(programID string, data interface{
 func (s *SocketIOServer) BroadcastStopProgram(programID string, data interface{}) {
 	s.Server.BroadcastToRoom("/", "program:"+programID, "program:stop", data)
 }
+
+// BroadcastProgramEnded broadcasts the program ended event to clients in the program room.
+func (s *SocketIOServer) BroadcastProgramEnded(programID string, data interface{}) {
+	s.Server.BroadcastToRoom("/", "program:"+programID, "program:ended", data)
+}

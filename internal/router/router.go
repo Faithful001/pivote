@@ -16,7 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRouter(mq *rabbitmq.RabbitMQ, socketio *websocket.SocketIOServer, sseBroadcaster *sse.BroadcasterManager) *gin.Engine {
+func SetupRouter(programService *program.ProgramService, mq *rabbitmq.RabbitMQ, socketio *websocket.SocketIOServer, sseBroadcaster *sse.BroadcasterManager) *gin.Engine {
 	router := gin.Default()
 
 	router.Use(middlewares.CORS())
@@ -45,7 +45,7 @@ func SetupRouter(mq *rabbitmq.RabbitMQ, socketio *websocket.SocketIOServer, sseB
 
 	{
 		programRoutes := v1.Group("/programs")
-		program.RegisterRoutes(programRoutes, mq, sseBroadcaster)
+		program.RegisterRoutes(programRoutes, programService, mq, sseBroadcaster)
 	}
 
 	{

@@ -12,8 +12,8 @@ import (
 )
 
 // RegisterRoutes registers all program-related routes
-func RegisterRoutes(router *gin.RouterGroup, mq *rabbitmq.RabbitMQ, sseBroadcaster *sse.BroadcasterManager) {
-	controller, err := NewProgramController(mq, sseBroadcaster)
+func RegisterRoutes(router *gin.RouterGroup, service *ProgramService, mq *rabbitmq.RabbitMQ, sseBroadcaster *sse.BroadcasterManager) {
+	controller, err := NewProgramController(service, mq, sseBroadcaster)
 	if err != nil {
 		panic(fmt.Sprintf("failed to initialize program controller: %v", err))
 	}

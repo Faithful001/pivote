@@ -31,15 +31,16 @@ type ProgramService struct {
 	socketio 	*websocket.SocketIOServer
 }
 
-func NewProgramService(mq *rabbitmq.RabbitMQ) (*ProgramService, error) {
+func NewProgramService(mq *rabbitmq.RabbitMQ, socketio *websocket.SocketIOServer) (*ProgramService, error) {
 	jwtUtil, err := utils.NewJWTUtil(os.Getenv("JWT_SECRET"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize jwt util: %w", err)
 	}
 
 	return &ProgramService{
-		jwtUtil: jwtUtil,
-		mq:      mq,
+		jwtUtil: 	jwtUtil,
+		mq:      	mq,
+		socketio:	socketio,
 	}, nil
 }
 
@@ -540,6 +541,44 @@ func (program *ProgramService) ToggleProgram(programID uuid.UUID, isActive bool,
 	}
 
 	return &foundProgram, nil
+}
+
+func (program *ProgramService) ExpireProgram(programID uuid.UUID) {
+	var foundProgram Program
+	err := db.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").
+			Where("id = ?", programID).
+			First(&foundProgram).Error; err != nil {
+			return err
+		}
+
+		if !foundProgram.IsActive {
+			return nil
+		}
+
+		foundProgram.IsActive = false
+		foundProgram.VotingEndsAt = nil
+
+		return tx.Model(&foundProgram).Updates(map[string]interface{}{
+			"is_active":      false,
+			"voting_ends_at": nil,
+		}).Error
+	})
+
+	if err != nil {
+		log.Printf("[ProgramService] Failed to expire program %s: %v", programID, err)
+		return
+	}
+
+	if publishErr := program.publishProgramStatusEvent(programID, false, nil); publishErr != nil {
+		log.Printf("[ProgramService] Failed to publish expire event: %v", publishErr)
+	}
+
+	msg := ProgramEventData{
+		Type:      "program:stop",
+		ProgramID: programID.String(),
+	}
+	go program.socketio.BroadcastStopProgram(programID.String(), msg)
 }
 
 func (p *ProgramService) publishProgramStatusEvent(programID uuid.UUID, isActive bool, votingEndsAt *time.Time) error {
