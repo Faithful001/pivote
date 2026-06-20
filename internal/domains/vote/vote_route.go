@@ -12,12 +12,12 @@ import (
 // RegisterRoutes registers all vote-related routes
 func RegisterRoutes(router *gin.RouterGroup, socketio *websocket.SocketIOServer) {
 	controller := NewVoteController(socketio)
-
-	protected := router.Group("/")
-	protected.Use(middlewares.Standard(user.RoleUser))
-
-	protected.POST("/toggle",
-		middlewares.RateLimit(middlewares.RateLimitConfig{
+		
+	userProtected := router.Group("")
+	userProtected.Use(middlewares.Standard(user.RoleUser))
+	
+	userProtected.POST("/toggle",
+	middlewares.RateLimit(middlewares.RateLimitConfig{
 			KeyPrefix: "vote:toggle",
 			Max:       20,
 			Window:    time.Minute,
@@ -25,6 +25,9 @@ func RegisterRoutes(router *gin.RouterGroup, socketio *websocket.SocketIOServer)
 		}),
 		controller.ToggleVote,
 	)
+
+	protected := router.Group("")
+	protected.Use(middlewares.Standard(user.RoleUser, user.RoleAdmin))
 
 	protected.GET("/program/:program_id", controller.GetVotesByProgramID)
 	protected.GET("/candidate/:candidate_id", controller.GetVotesByCandidateID)
