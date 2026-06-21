@@ -1,8 +1,8 @@
 # Pivote
 
-Pivote is a backend API for managing time-boxed voting programs. It was built to handle the full lifecycle of a voting event: creating the program, enrolling participants via tokenized invite links, collecting votes in real time, and automatically expiring programs when the deadline passes.
+Pivote is a backend API for the Pivote voting platform. It was built to handle the full lifecycle of a voting event: creating the program, enrolling participants via tokenized invite links, collecting votes in real time, and automatically expiring programs when the deadline passes.
 
-The name is a loose play on the word "pivot" and the Spanish word for vote, _votar_. It felt like a fitting name for something that sits at the intersection of decision-making and real-time state changes.
+The name is a blend of "pivot" and "e" for election. Voting is fundamentally about pivoting, and a good election shifts the direction of things. The name felt like a natural fit.
 
 ---
 
@@ -24,19 +24,19 @@ At its core, Pivote lets administrators create voting programs, invite users int
 
 ## Tech Stack
 
-| Concern | Technology |
-|---|---|
-| Language | Go 1.24 |
-| HTTP framework | Gin |
-| Database | PostgreSQL 15 via GORM |
-| Caching / rate limiting | Redis 7 |
-| Message broker | RabbitMQ 3 |
-| Real-time (WebSocket) | Socket.IO (go-socket.io) |
-| Real-time (SSE) | Native SSE via Gin |
-| Email delivery | Resend |
-| Auth | JWT (golang-jwt/jwt v5) |
-| Dev hot-reload | Air |
-| Containerization | Docker Compose |
+| Concern                 | Technology               |
+| ----------------------- | ------------------------ |
+| Language                | Go 1.24                  |
+| HTTP framework          | Gin                      |
+| Database                | PostgreSQL 15 via GORM   |
+| Caching / rate limiting | Redis 7                  |
+| Message broker          | RabbitMQ 3               |
+| Real-time (WebSocket)   | Socket.IO (go-socket.io) |
+| Real-time (SSE)         | Native SSE via Gin       |
+| Email delivery          | Resend                   |
+| Auth                    | JWT (golang-jwt/jwt v5)  |
+| Dev hot-reload          | Air                      |
+| Containerization        | Docker Compose           |
 
 ---
 
@@ -82,55 +82,55 @@ All routes are prefixed with `/api/v1`. Role-based middleware guards each group:
 
 ### Auth
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/auth/register` | Register a new user |
-| POST | `/auth/login` | Authenticate and receive a JWT |
+| Method | Path             | Description                    |
+| ------ | ---------------- | ------------------------------ |
+| POST   | `/auth/register` | Register a new user            |
+| POST   | `/auth/login`    | Authenticate and receive a JWT |
 
 ### OTPs
 
-| Method | Path | Description |
-|---|---|---|
-| POST | `/otps/verify` | Verify a one-time password |
+| Method | Path           | Description                |
+| ------ | -------------- | -------------------------- |
+| POST   | `/otps/verify` | Verify a one-time password |
 
 ### Users
 
-| Method | Path | Access |
-|---|---|---|
-| GET | `/users` | Admin, User |
-| GET | `/users/:id` | Admin, User |
+| Method | Path         | Access      |
+| ------ | ------------ | ----------- |
+| GET    | `/users`     | Admin, User |
+| GET    | `/users/:id` | Admin, User |
 
 ### Programs
 
-| Method | Path | Access | Description |
-|---|---|---|---|
-| POST | `/programs` | Admin | Create a voting program |
-| GET | `/programs` | Admin, User | List programs (filterable by workspace) |
-| GET | `/programs/:id` | Admin, User | Get a single program |
-| PUT | `/programs/:id` | Admin | Update program details |
-| DELETE | `/programs/:id` | Admin | Delete a program |
-| PATCH | `/programs/:id/toggle` | Admin | Activate or deactivate voting |
-| POST | `/programs/:id/request-join` | Public | Request an email invite |
-| POST | `/programs/:id/join` | Public | Join with a token from the invite email |
-| GET | `/programs/:id/countdown` | Admin, User | SSE stream of the countdown timer |
+| Method | Path                         | Access      | Description                             |
+| ------ | ---------------------------- | ----------- | --------------------------------------- |
+| POST   | `/programs`                  | Admin       | Create a voting program                 |
+| GET    | `/programs`                  | Admin, User | List programs (filterable by workspace) |
+| GET    | `/programs/:id`              | Admin, User | Get a single program                    |
+| PUT    | `/programs/:id`              | Admin       | Update program details                  |
+| DELETE | `/programs/:id`              | Admin       | Delete a program                        |
+| PATCH  | `/programs/:id/toggle`       | Admin       | Activate or deactivate voting           |
+| POST   | `/programs/:id/request-join` | Public      | Request an email invite                 |
+| POST   | `/programs/:id/join`         | Public      | Join with a token from the invite email |
+| GET    | `/programs/:id/countdown`    | Admin, User | SSE stream of the countdown timer       |
 
 ### Candidates
 
-| Method | Path | Access |
-|---|---|---|
-| POST | `/candidates` | Admin |
-| GET | `/candidates` | Admin, User |
-| GET | `/candidates/:id` | Admin, User |
-| PUT | `/candidates/:id` | Admin |
-| DELETE | `/candidates/:id` | Admin |
+| Method | Path              | Access      |
+| ------ | ----------------- | ----------- |
+| POST   | `/candidates`     | Admin       |
+| GET    | `/candidates`     | Admin, User |
+| GET    | `/candidates/:id` | Admin, User |
+| PUT    | `/candidates/:id` | Admin       |
+| DELETE | `/candidates/:id` | Admin       |
 
 ### Votes
 
-| Method | Path | Access | Description |
-|---|---|---|---|
-| POST | `/votes/toggle` | User | Cast or retract a vote (rate limited) |
-| GET | `/votes/program/:program_id` | Admin, User | Get votes for a program |
-| GET | `/votes/candidate/:candidate_id` | Admin, User | Get votes for a candidate |
+| Method | Path                             | Access      | Description                           |
+| ------ | -------------------------------- | ----------- | ------------------------------------- |
+| POST   | `/votes/toggle`                  | User        | Cast or retract a vote (rate limited) |
+| GET    | `/votes/program/:program_id`     | Admin, User | Get votes for a program               |
+| GET    | `/votes/candidate/:candidate_id` | Admin, User | Get votes for a candidate             |
 
 ### Workspaces
 
