@@ -2,7 +2,7 @@
 
 Pivote is the backend API for the Pivote voting platform. It was built to handle the full lifecycle of a voting event: creating the program, enrolling participants via tokenized invite links, collecting votes in real time, and automatically expiring programs when the deadline passes.
 
-The name is a blend of "pivot" and "e" for election. Voting is fundamentally about pivoting, and a good election shifts the direction of things. The name felt like a natural fit.
+The name is a blend of "pivot" and "e" for election. For a system built to collect votes and surface a result, the name just made sense.
 
 ---
 
