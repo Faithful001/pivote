@@ -161,7 +161,7 @@ Returns the server version and a status confirmation.
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/pivote.git
+git clone https://github.com/Faithful001/pivote.git
 cd pivote
 ```
 
