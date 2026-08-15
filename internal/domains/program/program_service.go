@@ -400,7 +400,11 @@ func (p *ProgramService) RequestJoinLink(userEmail string, programID uuid.UUID, 
 
 	// 6. Build join link
 	baseURL := "http://localhost:5173"
-	if os.Getenv("ENV") == "production" {
+	env := os.Getenv("APP_ENV")
+	if env == "" {
+		env = os.Getenv("ENV")
+	}
+	if env == "production" {
 		baseURL = "https://usepivote.vercel.app"
 	}
 	joinLink := fmt.Sprintf("%s/programs/%s/join?token=%s&email=%s&workspace_id=%s&workspace_name=%s&program_name=%s",
@@ -425,7 +429,11 @@ func (p *ProgramService) RequestJoinLink(userEmail string, programID uuid.UUID, 
 // with a link to register before joining the program
 func (p *ProgramService) sendRegistrationNudge(userEmail string, workspaceID uuid.UUID, workspaceName string, programID uuid.UUID, programName string) error {
 	baseURL := "http://localhost:5173"
-	if os.Getenv("ENV") == "production" {
+	env := os.Getenv("APP_ENV")
+	if env == "" {
+		env = os.Getenv("ENV")
+	}
+	if env == "production" {
 		baseURL = "https://usepivote.vercel.app"
 	}
 
