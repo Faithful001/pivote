@@ -1,0 +1,5 @@
+[build]
+command = "go build -o server ./cmd/api"
+
+[start]
+command = "./server"
