@@ -21,7 +21,12 @@ func SetupRouter(programService *program.ProgramService, mq *rabbitmq.RabbitMQ, 
 
 	router.Use(middlewares.CORS())
 
+	// Root and health endpoints for load balancers & platform health checks
+	router.GET("/", healthCheck)
+	router.GET("/health", healthCheck)
+
 	v1 := router.Group("/api/v1")
+	// v1.GET("/health", healthCheck)
 
 	{
 		authRoutes := v1.Group("/auth")
@@ -64,8 +69,6 @@ func SetupRouter(programService *program.ProgramService, mq *rabbitmq.RabbitMQ, 
 
 	router.GET("/socket.io/*any", gin.WrapH(socketio.Server))
 	router.POST("/socket.io/*any", gin.WrapH(socketio.Server))
-
-	router.GET("/health", healthCheck)
 
 	return router
 }
