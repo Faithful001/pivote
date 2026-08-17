@@ -26,7 +26,7 @@ func SetupRouter(programService *program.ProgramService, mq *rabbitmq.RabbitMQ, 
 	router.GET("/health", healthCheck)
 
 	v1 := router.Group("/api/v1")
-	// v1.GET("/health", healthCheck)
+	v1.GET("/health", healthCheck)
 
 	{
 		authRoutes := v1.Group("/auth")
