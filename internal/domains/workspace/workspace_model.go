@@ -12,7 +12,7 @@ type Workspace struct {
 	ID			uuid.UUID	`gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	Name		string 		`gorm:"type:varchar(255);not null" json:"name"`
 	OwnerID		uuid.UUID 	`gorm:"type:uuid;not null" json:"owner_id"`
-	Owner		user.User	`gorm:"foreignKey:OwnerID;references:id;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	Owner		user.User	`gorm:"foreignKey:OwnerID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 	CreatedAt	time.Time	`gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt	time.Time	`gorm:"autoUpdateTime" json:"updated_at"`
 }
